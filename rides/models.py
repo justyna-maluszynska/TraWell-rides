@@ -22,3 +22,11 @@ class Ride(models.Model):
     driver = models.ForeignKey(User, related_name='driver', on_delete=models.SET_NULL, blank=False, null=True)
     vehicle = models.ForeignKey(Vehicle, related_name='ride', on_delete=models.SET_NULL, blank=False, null=True)
     passengers = models.ManyToManyField(User, related_name='passenger', blank=True)
+
+    @property
+    def duration(self):
+        return self.end_date - self.start_date
+
+    @property
+    def available_seats(self):
+        return self.seats - len(self.passengers.all())
