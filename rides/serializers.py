@@ -32,7 +32,7 @@ class RideSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ride
-        fields = ('ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'end_date', 'price', 'seats',
+        fields = ('ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats',
                   'recurrent', 'automatic_confirm', 'description', 'driver', 'vehicle', 'duration', 'available_seats')
         extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False},
                         'description': {'required': False}}
