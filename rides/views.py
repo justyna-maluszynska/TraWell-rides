@@ -23,4 +23,4 @@ class RideViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomRidePagination
-    ordering_fields = ['price', 'start_date']  # duration and free seats
+    ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
