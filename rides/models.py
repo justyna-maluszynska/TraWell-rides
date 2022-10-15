@@ -17,7 +17,7 @@ class Ride(models.Model):
     start_date = models.DateTimeField(null=False)
     duration = models.DurationField(blank=False, default=timedelta)
     price = models.DecimalField(null=False, max_digits=10, decimal_places=2)
-    seats = models.IntegerField(null=False)
+    seats = models.PositiveIntegerField(null=False)
     recurrent = models.BooleanField(null=False, default=False)
     automatic_confirm = models.BooleanField(null=False, default=False)
     description = models.TextField()

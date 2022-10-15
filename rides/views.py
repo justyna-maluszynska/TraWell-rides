@@ -1,6 +1,8 @@
-from rest_framework import viewsets
+from django.http import JsonResponse
+from rest_framework import viewsets, status
 from rest_framework.pagination import PageNumberPagination
 
+from cities.models import City
 from rides.filters import RideFilter
 from rides.models import Ride
 from rides.serializers import RideSerializer
@@ -24,3 +26,34 @@ class RideViewSet(viewsets.ModelViewSet):
     filterset_class = RideFilter
     pagination_class = CustomRidePagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
+
+    def update(self, request, *args, **kwargs):
+        """
+        Endpoint for updating Ride object.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        if request.method == 'PATCH':
+            instance = self.get_object()
+            update_data = request.data
+
+            requested_city_from = update_data.pop('city_from')
+            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            instance.city_from = city_from
+
+            requested_city_to = update_data.pop('city_to')
+            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            instance.city_to = city_to
+
+            serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                instance.save()
+                serializer = self.get_serializer(instance)
+                return JsonResponse(serializer.data, safe=False)
+
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+
+        return super().update(request, *args, **kwargs)
