@@ -29,6 +29,7 @@ class RideSerializer(serializers.ModelSerializer):
     city_to = CityNestedSerializer(many=False)
     driver = UserNestedSerializer(many=False)
     vehicle = VehicleNestedSerializer(many=False)
+    duration = serializers.SerializerMethodField()
 
     class Meta:
         model = Ride
@@ -36,3 +37,8 @@ class RideSerializer(serializers.ModelSerializer):
                   'recurrent', 'automatic_confirm', 'description', 'driver', 'vehicle', 'duration', 'available_seats')
         extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False},
                         'description': {'required': False}}
+
+    def get_duration(self, obj):
+        total_minutes = int(obj.duration.total_seconds() // 60)
+        hours = total_minutes // 60
+        return {'hours': hours, 'minutes': total_minutes - hours * 60}

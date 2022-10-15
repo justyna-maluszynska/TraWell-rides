@@ -1,5 +1,6 @@
-from django_filters import rest_framework as filters, AllValuesFilter, NumberFilter, DateTimeFilter, BooleanFilter, \
-    CharFilter
+import datetime
+
+from django_filters import rest_framework as filters, NumberFilter, DateTimeFilter, BooleanFilter, CharFilter
 
 from rides.models import Ride
 
@@ -8,7 +9,7 @@ class RideFilter(filters.FilterSet):
     city_from = CharFilter(field_name='city_from__name', lookup_expr='exact')
     city_to = CharFilter(field_name='city_to__name', lookup_expr='exact')
     seats = NumberFilter(field_name='seats', lookup_expr='gte')
-    start_date = DateTimeFilter(field_name='start_date', lookup_expr='gte')
+    start_date = DateTimeFilter(field_name='start_date', method='daterange_filter')
     price_from = NumberFilter(field_name='price', lookup_expr='gte')
     price_to = NumberFilter(field_name='price', lookup_expr='lte')
     driver_rate = NumberFilter(field_name='driver__avg_rate', lookup_expr='gte')
@@ -19,3 +20,10 @@ class RideFilter(filters.FilterSet):
         fields = (
             'city_from', 'city_to', 'seats', 'start_date', 'price_from', 'price_to', 'driver_rate', 'is_ride_private'
         )
+
+    def daterange_filter(self, queryset, name: str, value: datetime):
+        first_parameter = '__'.join([name, 'gte'])
+        second_parameter = '__'.join([name, 'lte'])
+        return queryset.filter(**{first_parameter: value,
+                                  second_parameter: datetime.datetime.combine(value.date() + datetime.timedelta(1),
+                                                                              datetime.time.max)})
