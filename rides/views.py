@@ -43,13 +43,8 @@ class RideViewSet(viewsets.ModelViewSet):
         :param kwargs:
         :return:
         """
-        search_data = request.data
-        requested_city_from = search_data['city_from']
-        requested_city_to = search_data['city_to']
 
-        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(),
-                                       city_from__name=requested_city_from['name'],
-                                       city_to__name=requested_city_to['name'])
+        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today())
         filtered_queryset = self.filter_queryset(queryset)
         page = self.paginate_queryset(filtered_queryset)
 
