@@ -2,6 +2,7 @@ import datetime
 
 from django.http import JsonResponse
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 
 from cities.models import City
@@ -12,6 +13,7 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes
+from users.models import User
 
 
 class CustomRidePagination(PageNumberPagination):
@@ -70,3 +72,20 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
 
         return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['get'])
+    def user_rides(self, request, pk=None):
+        """
+        Endpoint for getting user rides
+        :param request:
+        :param pk: User ID
+        :return: List of user's rides.
+        """
+        try:
+            driver = User.objects.get(user_id=pk)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        rides = Ride.objects.filter(driver=driver)
+        serializer = self.get_serializer(rides, many=True)
+        return JsonResponse(serializer.data, safe=False)
