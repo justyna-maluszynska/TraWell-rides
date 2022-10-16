@@ -28,6 +28,9 @@ class Ride(models.Model):
 
     @property
     def get_available_seats(self):
+        if self.ride_id is None:
+            return None
+
         return self.seats - len(self.passengers.all())
 
     def save(self, *args, **kwargs):
