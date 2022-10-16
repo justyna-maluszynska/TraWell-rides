@@ -2,7 +2,6 @@ import datetime
 
 from django.http import JsonResponse
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 
 from cities.models import City
@@ -13,8 +12,6 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes
-
-MAX_DISTANCE = 15
 
 
 class CustomRidePagination(PageNumberPagination):
@@ -28,37 +25,11 @@ class RideViewSet(viewsets.ModelViewSet):
     This viewset automatically provides list and detail actions.
     """
     serializer_class = RideSerializer
-    queryset = Ride.objects.filter()
+    queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomRidePagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
-
-    @action(detail=False, methods=['get'])
-    def get_filtered(self, request, *args, **kwargs):
-        """
-        Endpoint for getting filtered rides.
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        search_data = request.data
-        requested_city_from = search_data['city_from']
-        requested_city_to = search_data['city_to']
-
-        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(),
-                                       city_from__name=requested_city_from['name'],
-                                       city_to__name=requested_city_to['name'])
-        filtered_queryset = self.filter_queryset(queryset)
-        page = self.paginate_queryset(filtered_queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(page, many=True)
-        return JsonResponse(serializer.data, safe=False)
 
     # TODO authorization
     def update(self, request, *args, **kwargs):
@@ -71,35 +42,31 @@ class RideViewSet(viewsets.ModelViewSet):
         """
         if request.method == 'PATCH':
             instance = self.get_object()
+            update_data = request.data
 
-            if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
-                update_data = request.data
+            requested_city_from = update_data.pop('city_from')
+            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            instance.city_from = city_from
 
-                requested_city_from = update_data.pop('city_from')
-                city_from, was_created = City.objects.get_or_create(**requested_city_from)
-                instance.city_from = city_from
+            requested_city_to = update_data.pop('city_to')
+            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            instance.city_to = city_to
 
-                requested_city_to = update_data.pop('city_to')
-                city_to, was_created = City.objects.get_or_create(**requested_city_to)
-                instance.city_to = city_to
-
-                duration = update_data.pop('duration')
-                hours = duration['hours']
-                minutes = duration['minutes']
-                if validate_hours_minutes(hours, minutes):
-                    instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
-                else:
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
-
-                serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                    instance.save()
-                    serializer = self.get_serializer(instance)
-                    return JsonResponse(serializer.data, safe=False)
-
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+            duration = update_data.pop('duration')
+            hours = duration['hours']
+            minutes = duration['minutes']
+            if validate_hours_minutes(hours, minutes):
+                instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
             else:
-                return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data", safe=False)
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+
+            serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                instance.save()
+                serializer = self.get_serializer(instance)
+                return JsonResponse(serializer.data, safe=False)
+
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
 
         return super().update(request, *args, **kwargs)
