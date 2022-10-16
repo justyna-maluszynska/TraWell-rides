@@ -87,5 +87,12 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
         rides = Ride.objects.filter(driver=driver)
-        serializer = self.get_serializer(rides, many=True)
+        filtered_rides = self.filter_queryset(rides)
+        page = self.paginate_queryset(filtered_rides)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(page, many=True)
         return JsonResponse(serializer.data, safe=False)
