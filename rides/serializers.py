@@ -21,7 +21,7 @@ class VehicleNestedSerializer(serializers.ModelSerializer):
 class UserNestedSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('user_id', 'first_name', 'last_name', 'avg_rate')
+        fields = ('user_id', 'first_name', 'last_name', 'avg_rate', 'avatar')
 
 
 class RideSerializer(serializers.ModelSerializer):
