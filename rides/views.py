@@ -2,6 +2,7 @@ import datetime
 
 from django.http import JsonResponse
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 
 from cities.models import City
@@ -12,6 +13,8 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes
+
+MAX_DISTANCE = 15
 
 
 class CustomRidePagination(PageNumberPagination):
@@ -31,10 +34,25 @@ class RideViewSet(viewsets.ModelViewSet):
     pagination_class = CustomRidePagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
 
-    def list(self, request, *args, **kwargs):
-        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today())
+    @action(detail=False, methods=['get'])
+    def get_filtered(self, request, *args, **kwargs):
+        """
+        Endpoint for getting filtered rides.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        search_data = request.data
+        requested_city_from = search_data['city_from']
+        requested_city_to = search_data['city_to']
+
+        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(),
+                                       city_from__name=requested_city_from['name'],
+                                       city_to__name=requested_city_to['name'])
         filtered_queryset = self.filter_queryset(queryset)
         page = self.paginate_queryset(filtered_queryset)
+
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
