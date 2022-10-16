@@ -7,3 +7,4 @@ class User(models.Model):
     last_name = models.CharField(max_length=100, null=False)
     avg_rate = models.DecimalField(max_digits=3, decimal_places=2)
     private = models.BooleanField(null=False, default=True)
+    avatar = models.URLField(blank=True, default="")
