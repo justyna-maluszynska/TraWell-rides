@@ -6,8 +6,6 @@ from rides.models import Ride
 
 
 class RideFilter(filters.FilterSet):
-    city_from = CharFilter(field_name='city_from__name', lookup_expr='exact')
-    city_to = CharFilter(field_name='city_to__name', lookup_expr='exact')
     seats = NumberFilter(field_name='seats', lookup_expr='gte')
     start_date = DateTimeFilter(field_name='start_date', method='daterange_filter')
     price_from = NumberFilter(field_name='price', lookup_expr='gte')
@@ -17,9 +15,7 @@ class RideFilter(filters.FilterSet):
 
     class Meta:
         model = Ride
-        fields = (
-            'city_from', 'city_to', 'seats', 'start_date', 'price_from', 'price_to', 'driver_rate', 'is_ride_private'
-        )
+        fields = ('seats', 'start_date', 'price_from', 'price_to', 'driver_rate', 'is_ride_private')
 
     def daterange_filter(self, queryset, name: str, value: datetime):
         first_parameter = '__'.join([name, 'gte'])
