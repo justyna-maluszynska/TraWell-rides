@@ -31,3 +31,4 @@ class RideFilter(filters.FilterSet):
             return queryset.filter(**{'driver__private': True})
         if value == 'company':
             return queryset.filter(**{'driver__private': False})
+        return queryset
