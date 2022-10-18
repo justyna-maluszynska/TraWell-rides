@@ -47,6 +47,27 @@ class Participation(models.Model):
     user = models.ForeignKey(User, related_name='passenger', on_delete=models.SET_NULL, null=True)
     decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=8)
 
+    def _update_available_seats(self, prev_decision: str = '', force_delete: bool = False):
+        if force_delete and self.decision == 'accepted':
+            self.ride.available_seats = self.ride.available_seats - 1
+        elif prev_decision != 'accepted' and self.decision == 'accepted':
+            self.ride.available_seats = self.ride.available_seats + 1
+        elif prev_decision == 'accepted' and self.decision != 'accepted':
+            self.ride.available_seats = self.ride.available_seats - 1
+        elif prev_decision == 'accepted' and self.decision == 'accepted':
+            self.ride.available_seats = self.ride.available_seats + 1
+        self.ride.save()
+
+    def save(self, *args, **kwargs):
+        prev_decision = self.decision
+        print(prev_decision)
+        super(Participation, self).save(*args, **kwargs)
+        self._update_available_seats(prev_decision=prev_decision)
+
+    def delete(self, using=None, keep_parents=False):
+        self._update_available_seats(force_delete=True)
+        super(Participation, self).delete(using, keep_parents)
+
 
 class ParticipationInline(admin.TabularInline):
     model = Participation
