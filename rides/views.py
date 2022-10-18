@@ -14,6 +14,8 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
+from users.models import User
+from vehicles.models import Vehicle
 
 
 class CustomRidePagination(PageNumberPagination):
@@ -88,6 +90,41 @@ class RideViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(page, many=True)
         return JsonResponse(serializer.data, safe=False)
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+
+        try:
+            city_from_dict = data.pop('city_from')
+            city_to_dict = data.pop('city_to')
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
+
+        city_from_obj, created = City.objects.get_or_create(
+            **{'name': city_from_dict['name'], 'county': city_from_dict['county'], 'state': city_from_dict['state']})
+        city_to_obj, created = City.objects.get_or_create(
+            **{'name': city_to_dict['name'], 'county': city_to_dict['county'], 'state': city_to_dict['state']})
+
+        try:
+            # TODO in a future, driver will be passed with token
+            driver_id = data.pop('driver')
+            driver = User.objects.get(user_id=driver_id)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Driver not found", safe=False)
+
+        try:
+            vehicle = Vehicle.objects.get(vehicle_id=data.pop('vehicle'), user_id=driver)
+        except Vehicle.DoesNotExist:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
+
+        duration_data = data.pop('duration')
+        duration = datetime.timedelta(hours=duration_data['hours'], minutes=duration_data['minutes'])
+        ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=driver, vehicle=vehicle, duration=duration,
+                    **data)
+        ride.save()
+        serializer = self.get_serializer(ride)
+
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
     # TODO authorization
     def update(self, request, *args, **kwargs):
