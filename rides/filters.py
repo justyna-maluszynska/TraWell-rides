@@ -11,11 +11,11 @@ class RideFilter(filters.FilterSet):
     price_from = NumberFilter(field_name='price', lookup_expr='gte')
     price_to = NumberFilter(field_name='price', lookup_expr='lte')
     driver_rate = NumberFilter(field_name='driver__avg_rate', lookup_expr='gte')
-    is_ride_private = BooleanFilter(field_name='driver__private', lookup_expr='exact')
+    ride_type = CharFilter(field_name='driver__private', method='driver_type_filter')
 
     class Meta:
         model = Ride
-        fields = ('seats', 'start_date', 'price_from', 'price_to', 'driver_rate', 'is_ride_private')
+        fields = ('seats', 'start_date', 'price_from', 'price_to', 'driver_rate', 'ride_type')
 
     def daterange_filter(self, queryset, name: str, value: datetime):
         first_parameter = '__'.join([name, 'gte'])
@@ -23,3 +23,11 @@ class RideFilter(filters.FilterSet):
         return queryset.filter(**{first_parameter: value,
                                   second_parameter: datetime.datetime.combine(value.date() + datetime.timedelta(1),
                                                                               datetime.time.max)})
+
+    def driver_type_filter(self, queryset, name: str, value: str):
+        if value == 'all' or value is None:
+            return queryset
+        if value == 'private':
+            return queryset.filter(**{'driver__private': True})
+        if value == 'company':
+            return queryset.filter(**{'driver__private': False})
