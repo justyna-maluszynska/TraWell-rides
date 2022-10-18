@@ -51,7 +51,7 @@ def find_near_cities(city: dict) -> List[int]:
     :param city: find near cities to this given City data dict
     :return: list with cities ids
     """
-    queryset = City.objects.filter(state=city['county'])
+    queryset = City.objects.filter(county=city['county'])
     near_cities_ids = [near_city.city_id for near_city in queryset if
                        calculate_distance(city, near_city) <= MAX_DISTANCE]
     return near_cities_ids
