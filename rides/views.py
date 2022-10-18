@@ -44,18 +44,21 @@ class RideViewSet(viewsets.ModelViewSet):
         city_from_obj = find_city_object(city_from)
         city_to_obj = find_city_object(city_to)
 
-        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
-                                       city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
+        if city_to_obj is not None:
+            queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
+                                           city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
 
-        if not queryset.exists():
-            # There are no rides to given city destination, no sense to check the rest of parameters
-            return queryset
+            if not queryset.exists():
+                # There are no rides to given city destination, no sense to check the rest of parameters
+                return queryset
 
-        near_cities_ids = find_near_cities(city_from_obj)
+            near_cities_ids = find_near_cities(city_from_obj)
 
-        queryset_with_near_cities = queryset.filter(city_from__city_id__in=near_cities_ids)
-        filtered_queryset = self.filter_queryset(queryset_with_near_cities)
-        return filtered_queryset
+            queryset_with_near_cities = queryset.filter(city_from__city_id__in=near_cities_ids)
+            filtered_queryset = self.filter_queryset(queryset_with_near_cities)
+            return filtered_queryset
+        else:
+            return Ride.objects.none()
 
     @action(detail=False, methods=['get'])
     def get_filtered(self, request, *args, **kwargs):
