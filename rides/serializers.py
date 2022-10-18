@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from cities.models import City
-from rides.models import Ride
+from rides.models import Ride, Participation
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -21,7 +21,15 @@ class VehicleNestedSerializer(serializers.ModelSerializer):
 class UserNestedSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('user_id', 'first_name', 'last_name', 'avg_rate', 'avatar')
+        fields = ('user_id', 'first_name', 'last_name', 'avg_rate', 'avatar', 'private')
+
+
+class ParticipationNestedSerializer(serializers.ModelSerializer):
+    user = UserNestedSerializer(many=False)
+
+    class Meta:
+        model = Participation
+        fields = ('user', 'decision')
 
 
 class RideSerializer(serializers.ModelSerializer):
@@ -30,11 +38,13 @@ class RideSerializer(serializers.ModelSerializer):
     driver = UserNestedSerializer(many=False)
     vehicle = VehicleNestedSerializer(many=False)
     duration = serializers.SerializerMethodField()
+    passengers = ParticipationNestedSerializer(source='participation_set', many=True)
 
     class Meta:
         model = Ride
         fields = ('ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats',
-                  'recurrent', 'automatic_confirm', 'description', 'driver', 'vehicle', 'duration', 'available_seats')
+                  'recurrent', 'automatic_confirm', 'description', 'driver', 'vehicle', 'duration', 'available_seats',
+                  'passengers')
         extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False},
                         'description': {'required': False}}
 
