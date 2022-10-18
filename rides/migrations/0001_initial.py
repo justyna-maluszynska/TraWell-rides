@@ -5,7 +5,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -28,11 +27,19 @@ class Migration(migrations.Migration):
                 ('recurrent', models.BooleanField(default=False)),
                 ('automatic_confirm', models.BooleanField(default=False)),
                 ('description', models.TextField()),
-                ('city_from', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='city_from', to='cities.city')),
-                ('city_to', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='city_to', to='cities.city')),
-                ('driver', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='driver', to='users.user')),
+                ('city_from',
+                 models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='city_from',
+                                   to='cities.city')),
+                ('city_to',
+                 models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='city_to',
+                                   to='cities.city')),
+                ('driver',
+                 models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='driver',
+                                   to='users.user')),
                 ('passengers', models.ManyToManyField(blank=True, related_name='passenger', to='users.user')),
-                ('vehicle', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='ride', to='vehicles.vehicle')),
+                ('vehicle',
+                 models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='ride',
+                                   to='vehicles.vehicle')),
             ],
         ),
     ]
