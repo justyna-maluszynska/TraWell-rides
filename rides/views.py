@@ -41,7 +41,6 @@ class RideViewSet(viewsets.ModelViewSet):
         :param city_to: dictionary with destination city data
         :return: queryset with all rides from city_from + nearest cities to city_to
         """
-        city_from_obj = find_city_object(city_from)
         city_to_obj = find_city_object(city_to)
 
         if city_to_obj is not None:
@@ -52,7 +51,7 @@ class RideViewSet(viewsets.ModelViewSet):
                 # There are no rides to given city destination, no sense to check the rest of parameters
                 return queryset
 
-            near_cities_ids = find_near_cities(city_from_obj)
+            near_cities_ids = find_near_cities(city_from)
 
             queryset_with_near_cities = queryset.filter(city_from__city_id__in=near_cities_ids)
             filtered_queryset = self.filter_queryset(queryset_with_near_cities)
@@ -76,7 +75,11 @@ class RideViewSet(viewsets.ModelViewSet):
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
 
-        filtered_queryset = self._get_queryset_with_near_cities(city_from_dict, city_to_dict)
+        try:
+            filtered_queryset = self._get_queryset_with_near_cities(city_from_dict, city_to_dict)
+        except ValueError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Something went wrong: {e}", safe=False)
+
         page = self.paginate_queryset(filtered_queryset)
 
         if page is not None:
@@ -115,11 +118,10 @@ class RideViewSet(viewsets.ModelViewSet):
                 if validate_hours_minutes(hours, minutes):
                     instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
                 else:
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong duration parameter", safe=False)
 
                 serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
                 if serializer.is_valid():
-                    serializer.save()
                     instance.save()
                     serializer = self.get_serializer(instance)
                     return JsonResponse(serializer.data, safe=False)

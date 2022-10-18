@@ -11,10 +11,9 @@ def validate_hours_minutes(hours: int, minutes: int):
     return 0 <= hours and 0 <= minutes < 60
 
 
-def calculate_distance(city_from: City, city_to: City):
-    coord_from = (city_from.lat, city_from.lng)
+def calculate_distance(city_from: dict, city_to: City):
+    coord_from = (city_from['lat'], city_from['lng'])
     coord_to = (city_to.lat, city_to.lng)
-    print(f'{city_from} -> {city_to} = {distance.distance(coord_from, coord_to).km}')
     return distance.distance(coord_from, coord_to).km
 
 
@@ -45,14 +44,14 @@ def find_city_object(city: dict) -> City | None:
         return None
 
 
-def find_near_cities(city: City) -> List[int]:
+def find_near_cities(city: dict) -> List[int]:
     """
     Finds cities in a MAX_DISTANCE ray from requested city.
 
-    :param city: find near cities to this given City object
+    :param city: find near cities to this given City data dict
     :return: list with cities ids
     """
-    queryset = City.objects.filter(state=city.state)
+    queryset = City.objects.filter(state=city['county'])
     near_cities_ids = [near_city.city_id for near_city in queryset if
                        calculate_distance(city, near_city) <= MAX_DISTANCE]
     return near_cities_ids
