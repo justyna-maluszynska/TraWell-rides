@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('rides', '0002_ride_available_seats_ride_duration'),
     ]

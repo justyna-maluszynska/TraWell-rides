@@ -1,9 +1,9 @@
 import datetime
 
+from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 
 from cities.models import City
 from rides.filters import RideFilter
@@ -12,15 +12,9 @@ from rides.serializers import RideSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils import validate_hours_minutes
+from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
 from users.models import User
-
-MAX_DISTANCE = 15
-
-
-class CustomRidePagination(PageNumberPagination):
-    page_size = 15
-    page_size_query_param = 'page_size'
+from utils.CustomPagination import CustomPagination
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -32,8 +26,34 @@ class RideViewSet(viewsets.ModelViewSet):
     queryset = Ride.objects.filter()
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
-    pagination_class = CustomRidePagination
+    pagination_class = CustomPagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
+
+    def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
+        """
+        Gets queryset with cities near the starting city (city_from). The accepted range in km is defined in MAX_DISTANCE.
+
+        :param city_from: dictionary with starting city data
+        :param city_to: dictionary with destination city data
+        :return: queryset with all rides from city_from + nearest cities to city_to
+        """
+        city_to_obj = find_city_object(city_to)
+
+        if city_to_obj is not None:
+            queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
+                                           city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
+
+            if not queryset.exists():
+                # There are no rides to given city destination, no sense to check the rest of parameters
+                return queryset
+
+            near_cities_ids = find_near_cities(city_from)
+
+            queryset_with_near_cities = queryset.filter(city_from__city_id__in=near_cities_ids)
+            filtered_queryset = self.filter_queryset(queryset_with_near_cities)
+            return filtered_queryset
+        else:
+            return Ride.objects.none()
 
     @action(detail=False, methods=['get'])
     def get_filtered(self, request, *args, **kwargs):
@@ -44,14 +64,18 @@ class RideViewSet(viewsets.ModelViewSet):
         :param kwargs:
         :return:
         """
-        search_data = request.data
-        requested_city_from = search_data['city_from']
-        requested_city_to = search_data['city_to']
+        parameters = request.GET
+        try:
+            city_from_dict = get_city_info(parameters, 'from')
+            city_to_dict = get_city_info(parameters, 'to')
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
 
-        queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(),
-                                       city_from__name=requested_city_from['name'],
-                                       city_to__name=requested_city_to['name'])
-        filtered_queryset = self.filter_queryset(queryset)
+        try:
+            filtered_queryset = self._get_queryset_with_near_cities(city_from_dict, city_to_dict)
+        except ValueError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Something went wrong: {e}", safe=False)
+
         page = self.paginate_queryset(filtered_queryset)
 
         if page is not None:
@@ -90,11 +114,10 @@ class RideViewSet(viewsets.ModelViewSet):
                 if validate_hours_minutes(hours, minutes):
                     instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
                 else:
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong duration parameter", safe=False)
 
                 serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
                 if serializer.is_valid():
-                    serializer.save()
                     instance.save()
                     serializer = self.get_serializer(instance)
                     return JsonResponse(serializer.data, safe=False)
@@ -111,7 +134,7 @@ class RideViewSet(viewsets.ModelViewSet):
         Endpoint for getting user rides
         :param request:
         :param pk: User ID
-        :return: List of user's rides.
+        :returns: List of user's rides.
         """
         try:
             driver = User.objects.get(user_id=pk)
