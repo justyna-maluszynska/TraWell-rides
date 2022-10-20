@@ -36,7 +36,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         :param city_from: dictionary with starting city data
         :param city_to: dictionary with destination city data
-        :return: queryset with all rides from city_from + nearest cities to city_to
+        :returns: queryset with all rides from city_from + nearest cities to city_to
         """
         city_to_obj = find_city_object(city_to)
 
@@ -86,6 +86,7 @@ class RideViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(page, many=True)
         return JsonResponse(serializer.data, safe=False)
 
+    # TODO authorization
     def create(self, request, *args, **kwargs):
         data = request.data
 

@@ -37,6 +37,10 @@ class Ride(models.Model):
     def save(self, *args, **kwargs):
         if not self.ride_id:
             super(Ride, self).save(*args, **kwargs)
+        if not self.available_seats:
+            self.available_seats = self.get_available_seats
+            super(Ride, self).save(*args, **kwargs)
+
         super(Ride, self).save(*args, **kwargs)
 
 
@@ -52,18 +56,17 @@ class Participation(models.Model):
 
     def _update_available_seats(self, prev_decision: str = '', force_delete: bool = False):
         if force_delete and self.decision == 'accepted':
-            self.ride.available_seats = self.ride.available_seats - 1
+            self.ride.available_seats = self.ride.available_seats + 1
         elif prev_decision != 'accepted' and self.decision == 'accepted':
             self.ride.available_seats = self.ride.available_seats + 1
         elif prev_decision == 'accepted' and self.decision != 'accepted':
             self.ride.available_seats = self.ride.available_seats - 1
         elif prev_decision == 'accepted' and self.decision == 'accepted':
-            self.ride.available_seats = self.ride.available_seats + 1
+            self.ride.available_seats = self.ride.available_seats - 1
         self.ride.save()
 
     def save(self, *args, **kwargs):
         prev_decision = self.decision
-        print(prev_decision)
         super(Participation, self).save(*args, **kwargs)
         self._update_available_seats(prev_decision=prev_decision)
 
