@@ -14,11 +14,7 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
-
-
-class CustomRidePagination(PageNumberPagination):
-    page_size = 15
-    page_size_query_param = 'page_size'
+from utils.CustomPagination import CustomPagination
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -30,7 +26,7 @@ class RideViewSet(viewsets.ModelViewSet):
     queryset = Ride.objects.filter()
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
-    pagination_class = CustomRidePagination
+    pagination_class = CustomPagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
 
     def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
