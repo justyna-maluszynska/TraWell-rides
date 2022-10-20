@@ -1,0 +1,26 @@
+How to run scripts
+
+1.Go to the terminal,
+2.Make sure that you're in the TraWell-rides folder
+3.Run 'docker ps' and copy the container id of trawell-rides-web image from the list
+4.Run 'docker exec -it <container_id> bash'
+5.After bash activation run 'python manage.py shell'
+6.After shell activation run 'import scripts.create_data'
+7.Wait 1 minute and voila, enjoy
+
+How to delete all data from database
+
+1.Go to the terminal,
+2.Make sure that you're in the TraWell-rides folder
+3.Run 'docker ps' and copy the container id of trawell-rides-web image from the list
+4.Run 'docker exec -it <container_id> bash'
+5.After bash activation run 'python manage.py flush'
+6.Type 'yes'
+
+Scripts explanations
+
+The script that you need run is create_data.py. It runs the rest of scripts.
+create_cities.py always creates 20 cities.
+create_rides.py creates for every city from db RIDES_AMOUNT_WITH_THE_SAME_CITY_TO instances of Ride where the city is assigned to city_to field.
+
+
