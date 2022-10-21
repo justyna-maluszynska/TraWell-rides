@@ -52,9 +52,7 @@ class RideListSerializer(serializers.ModelSerializer):
         extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
 
     def get_duration(self, obj):
-        total_minutes = int(obj.duration.total_seconds() // 60)
-        hours = total_minutes // 60
-        return {'hours': hours, 'minutes': total_minutes - hours * 60}
+        return get_duration(obj)
 
 
 class RideSerializer(serializers.ModelSerializer):
@@ -75,6 +73,10 @@ class RideSerializer(serializers.ModelSerializer):
                         'description': {'required': False}, 'coordinates': {'required': False}}
 
     def get_duration(self, obj):
-        total_minutes = int(obj.duration.total_seconds() // 60)
-        hours = total_minutes // 60
-        return {'hours': hours, 'minutes': total_minutes - hours * 60}
+        return get_duration(obj)
+
+
+def get_duration(obj: Ride):
+    total_minutes = int(obj.duration.total_seconds() // 60)
+    hours = total_minutes // 60
+    return {'hours': hours, 'minutes': total_minutes - hours * 60}
