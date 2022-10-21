@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from cities.models import City
 from rides.filters import RideFilter
 from rides.models import Ride
-from rides.serializers import RideSerializer
+from rides.serializers import RideSerializer, RideListSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -22,12 +22,19 @@ class RideViewSet(viewsets.ModelViewSet):
     API View Set that allows Rides to be viewed, created, updated or deleted.
     This viewset automatically provides list and detail actions.
     """
-    serializer_class = RideSerializer
+
+    serializer_classes = {
+        'get_filtered': RideListSerializer,
+        'retrieve': RideSerializer
+    }
     queryset = Ride.objects.filter()
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomPagination
     ordering_fields = ['price', 'start_date', 'duration', 'available_seats']
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action) or RideSerializer
 
     def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
         """
