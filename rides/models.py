@@ -70,6 +70,14 @@ class Participation(models.Model):
         super(Participation, self).delete(using, keep_parents)
 
 
+class Coordinate(models.Model):
+    coordinate_id = models.AutoField(primary_key=True)
+    ride = models.ForeignKey(Ride, related_name='coordinates', on_delete=models.CASCADE, null=False)
+    lat = models.DecimalField(null=False, max_digits=15, decimal_places=6)
+    lng = models.DecimalField(null=False, max_digits=15, decimal_places=6)
+    sequence_no = models.IntegerField(null=False)
+
+
 class ParticipationInline(admin.TabularInline):
     model = Participation
 
