@@ -35,8 +35,6 @@ class Ride(models.Model):
         return self.seats - len(self.passengers.filter(passenger__decision='accepted'))
 
     def save(self, *args, **kwargs):
-        if not self.ride_id:
-            super(Ride, self).save(*args, **kwargs)
         super(Ride, self).save(*args, **kwargs)
 
 
