@@ -4,7 +4,6 @@ from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 
 from cities.models import City
 from rides.filters import RideFilter
@@ -14,6 +13,7 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
+from users.models import User
 from utils.CustomPagination import CustomPagination
 
 
@@ -55,6 +55,16 @@ class RideViewSet(viewsets.ModelViewSet):
         else:
             return Ride.objects.none()
 
+    def _get_paginated_queryset(self, queryset: QuerySet) -> JsonResponse:
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(page, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
     @action(detail=False, methods=['get'])
     def get_filtered(self, request, *args, **kwargs):
         """
@@ -76,14 +86,7 @@ class RideViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Something went wrong: {e}", safe=False)
 
-        page = self.paginate_queryset(filtered_queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(page, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return self._get_paginated_queryset(filtered_queryset)
 
     # TODO authorization
     def update(self, request, *args, **kwargs):
@@ -127,3 +130,37 @@ class RideViewSet(viewsets.ModelViewSet):
                 return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data", safe=False)
 
         return super().update(request, *args, **kwargs)
+
+    # TODO authorization
+    @action(detail=True, methods=['get'])
+    def user_rides(self, request, pk=None):
+        """
+        Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
+        :param request:
+        :param pk: User ID
+        :returns: List of user's rides.
+        """
+
+        try:
+            driver = User.objects.get(user_id=pk)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        rides = Ride.objects.filter(driver=driver, start_date__gt=datetime.datetime.today())
+        try:
+            city_from_dict = get_city_info(request.GET, 'from')
+            rides = rides.filter(city_from__name=city_from_dict['name'], city_from__state=city_from_dict['state'],
+                                 city_from__county=city_from_dict['county'])
+        except KeyError:
+            pass
+
+        try:
+            city_to_dict = get_city_info(request.GET, 'to')
+            rides = rides.filter(city_to__name=city_to_dict['name'],
+                                 city_to__state=city_to_dict['state'],
+                                 city_to__county=city_to_dict['county'])
+        except KeyError:
+            pass
+
+        filtered_rides = self.filter_queryset(rides)
+        return self._get_paginated_queryset(filtered_rides)
