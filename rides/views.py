@@ -7,8 +7,8 @@ from rest_framework.decorators import action
 
 from cities.models import City
 from rides.filters import RideFilter
-from rides.models import Ride, Participation
-from rides.serializers import RideSerializer, RideListSerializer
+from rides.models import Ride, Participation, Coordinate
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -25,7 +25,8 @@ class RideViewSet(viewsets.ModelViewSet):
 
     serializer_classes = {
         'get_filtered': RideListSerializer,
-        'retrieve': RideSerializer
+        'retrieve': RideSerializer,
+        'user_rides': RidePersonal,
     }
     queryset = Ride.objects.filter()
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -70,7 +71,7 @@ class RideViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(page, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
 
     @action(detail=False, methods=['get'])
     def get_filtered(self, request, *args, **kwargs):
@@ -95,6 +96,48 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return self._get_paginated_queryset(filtered_queryset)
 
+    def _update_ride_nested_fields(self, update_data: dict):
+        instance = self.get_object()
+
+        try:
+            requested_city_from = update_data.pop('city_from')
+            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            instance.city_from = city_from
+        except KeyError:
+            pass
+
+        try:
+            requested_city_to = update_data.pop('city_to')
+            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            instance.city_to = city_to
+        except KeyError:
+            pass
+
+        try:
+            duration = update_data.pop('duration')
+            hours = duration['hours']
+            minutes = duration['minutes']
+            if validate_hours_minutes(hours, minutes):
+                instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
+            else:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong duration parameter",
+                                    safe=False)
+        except KeyError:
+            pass
+
+        try:
+            instance.coordinates.all().delete()
+            coordinates = update_data.pop('coordinates')
+
+            for coordinate in coordinates:
+                Coordinate.objects.update_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
+                                                    defaults={'sequence_no': coordinate['sequence_no']})
+        except KeyError:
+            pass
+
+        instance.save()
+        return instance
+
     # TODO authorization
     def update(self, request, *args, **kwargs):
         """
@@ -109,26 +152,11 @@ class RideViewSet(viewsets.ModelViewSet):
 
             if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
                 update_data = request.data
-
-                requested_city_from = update_data.pop('city_from')
-                city_from, was_created = City.objects.get_or_create(**requested_city_from)
-                instance.city_from = city_from
-
-                requested_city_to = update_data.pop('city_to')
-                city_to, was_created = City.objects.get_or_create(**requested_city_to)
-                instance.city_to = city_to
-
-                duration = update_data.pop('duration')
-                hours = duration['hours']
-                minutes = duration['minutes']
-                if validate_hours_minutes(hours, minutes):
-                    instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
-                else:
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong duration parameter", safe=False)
+                instance = self._update_ride_nested_fields(update_data)
 
                 serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
                 if serializer.is_valid():
-                    instance.save()
+                    serializer.save()
                     serializer = self.get_serializer(instance)
                     return JsonResponse(serializer.data, safe=False)
 
@@ -139,17 +167,17 @@ class RideViewSet(viewsets.ModelViewSet):
         return super().update(request, *args, **kwargs)
 
     # TODO authorization
-    @action(detail=True, methods=['get'])
-    def user_rides(self, request, pk=None):
+    @action(detail=False, methods=['get'], url_path=r'user_rides/(?P<user_id>[^/.]+)')
+    def user_rides(self, request, user_id):
         """
         Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
+        :param user_id:
         :param request:
-        :param pk: User ID
         :return: List of user's rides.
         """
 
         try:
-            driver = User.objects.get(user_id=pk)
+            driver = User.objects.get(user_id=user_id)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
@@ -183,11 +211,11 @@ class RideViewSet(viewsets.ModelViewSet):
         """
         parameters = request.data
         try:
-            requesting_user = User.objects.get(user_id=parameters['user_id'])
+            requesting_user = User.objects.get(user_id=parameters['requestor_id'])
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
-        except KeyError:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Missing parameter: user_id", safe=False)
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
 
         instance = self.get_object()
 
@@ -215,7 +243,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         data = request.data
         try:
-            requesting_user = User.objects.get(user_id=data['user_id'])
+            requesting_user = User.objects.get(user_id=data['driver_id'])
             if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
                 decision = data['decision']
                 if decision in [choice[0] for choice in Participation.Decision.choices]:
@@ -242,7 +270,6 @@ class RideViewSet(viewsets.ModelViewSet):
         :param request_id:
         :return:
         """
-        data = request.data
 
         try:
             participation = Participation.objects.get(id=request_id)
@@ -250,15 +277,13 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
 
         try:
-            requesting_user = User.objects.get(user_id=data['user_id'])
-            if participation.user == requesting_user and participation.decision != Participation.Decision.CANCELLED:
+            # TODO check if requesting user is a passenger of this participation
+            if participation.decision != Participation.Decision.CANCELLED:
                 participation.decision = Participation.Decision.CANCELLED
                 participation.save()
                 return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
             else:
                 return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
                                     safe=False)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)

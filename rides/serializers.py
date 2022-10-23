@@ -38,6 +38,20 @@ class CoordinatesNestedSerializer(serializers.ModelSerializer):
         fields = ('lat', 'lng', 'sequence_no')
 
 
+class RidePersonal(serializers.ModelSerializer):
+    city_from = CityNestedSerializer(many=False)
+    city_to = CityNestedSerializer(many=False)
+    duration = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ride
+        fields = ('ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'duration')
+        extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
+
+    def get_duration(self, obj):
+        return get_duration(obj)
+
+
 class RideListSerializer(serializers.ModelSerializer):
     city_from = CityNestedSerializer(many=False)
     city_to = CityNestedSerializer(many=False)
