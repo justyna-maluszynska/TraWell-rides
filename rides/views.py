@@ -174,7 +174,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
     # TODO authorization
     @action(detail=True, methods=['post'])
-    def request(self, request, pk=None):
+    def send_request(self, request, pk=None):
         """
         Endpoint for sending request to join a ride.
         :param request:
@@ -217,12 +217,12 @@ class RideViewSet(viewsets.ModelViewSet):
         except Participation.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
 
-        parameters = request.data
+        data = request.data
         try:
-            requesting_user = User.objects.get(user_id=parameters['user_id'])
+            requesting_user = User.objects.get(user_id=data['user_id'])
             if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
-                decision = parameters['decision']
-                if decision in Participation.Decision.choices:
+                decision = data['decision']
+                if decision in [choice[0] for choice in Participation.Decision.choices]:
                     participation.decision = decision
                     participation.save()
                     return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully changed to {decision}',
@@ -232,6 +232,36 @@ class RideViewSet(viewsets.ModelViewSet):
                                         safe=False)
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
                                 data=f"Request do not have {participation.Decision.PENDING} status", safe=False)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
+
+    # TODO Authorization
+    @request.mapping.delete
+    def delete_request(self, request, request_id):
+        """
+        Endpoint for removing sent requests.
+        :param request:
+        :param request_id:
+        :return:
+        """
+        data = request.data
+
+        try:
+            participation = Participation.objects.get(id=request_id)
+        except Participation.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
+
+        try:
+            requesting_user = User.objects.get(user_id=data['user_id'])
+            if participation.user == requesting_user and participation.decision != Participation.Decision.CANCELLED:
+                participation.decision = Participation.Decision.CANCELLED
+                participation.save()
+                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
+            else:
+                return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
+                                    safe=False)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
         except KeyError as e:
