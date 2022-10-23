@@ -29,7 +29,7 @@ class ParticipationNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Participation
-        fields = ('user', 'decision')
+        fields = ('id', 'user', 'decision')
 
 
 class CoordinatesNestedSerializer(serializers.ModelSerializer):
