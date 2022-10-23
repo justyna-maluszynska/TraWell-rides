@@ -7,6 +7,8 @@ from cities.models import City
 from users.models import User
 from vehicles.models import Vehicle
 
+from django.db.models.signals import m2m_changed
+
 
 # Create your models here.
 class Ride(models.Model):
@@ -43,31 +45,29 @@ class Participation(models.Model):
         ACCEPTED = 'accepted'
         DECLINED = 'declined'
         PENDING = 'pending'
+        CANCELLED = 'cancelled'
 
     ride = models.ForeignKey(Ride, on_delete=models.SET_NULL, null=True)
     user = models.ForeignKey(User, related_name='passenger', on_delete=models.SET_NULL, null=True)
-    decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=8)
-
-    def _update_available_seats(self, prev_decision: str = '', force_delete: bool = False):
-        if force_delete and self.decision == 'accepted':
-            self.ride.available_seats = self.ride.available_seats - 1
-        elif prev_decision != 'accepted' and self.decision == 'accepted':
-            self.ride.available_seats = self.ride.available_seats + 1
-        elif prev_decision == 'accepted' and self.decision != 'accepted':
-            self.ride.available_seats = self.ride.available_seats - 1
-        elif prev_decision == 'accepted' and self.decision == 'accepted':
-            self.ride.available_seats = self.ride.available_seats + 1
-        self.ride.save()
-
-    def save(self, *args, **kwargs):
-        prev_decision = self.decision
-        print(prev_decision)
-        super(Participation, self).save(*args, **kwargs)
-        self._update_available_seats(prev_decision=prev_decision)
+    decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=9)
 
     def delete(self, using=None, keep_parents=False):
-        self._update_available_seats(force_delete=True)
         super(Participation, self).delete(using, keep_parents)
+        self.ride.available_seats = self.ride.get_available_seats
+        self.ride.save()
+
+
+def participation_changed(sender, instance, action, **kwargs):
+    if action in 'post_add':
+        instance.available_seats = instance.get_available_seats
+        instance.save()
+    # if action in 'pre_delete':
+    #     print(instance)
+    # if action in 'post_delete':
+    #     print(instance)
+
+
+m2m_changed.connect(participation_changed, sender=Ride.passengers.through)
 
 
 class Coordinate(models.Model):

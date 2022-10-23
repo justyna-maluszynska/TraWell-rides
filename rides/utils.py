@@ -1,8 +1,11 @@
+import datetime
 from typing import List
 
 from geopy import distance
 
 from cities.models import City
+from rides.models import Ride, Participation
+from users.models import User
 
 MAX_DISTANCE = 10
 
@@ -55,3 +58,25 @@ def find_near_cities(city: dict) -> List[int]:
     near_cities_ids = [near_city.city_id for near_city in queryset if
                        calculate_distance(city, near_city) <= MAX_DISTANCE]
     return near_cities_ids
+
+
+def verify_request(user: User, ride: Ride) -> (bool, str):
+    """
+    Verify if requesting user can join specified ride.
+    :param user: User requesting to join ride
+    :param ride: Ride related to request
+    :return: True if request can be sent, otherwise False and message with more info about verification
+    """
+    if ride.driver_id == user.user_id:
+        return False, "Driver cannot send request to join his ride"
+    if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
+                                                                             Participation.Decision.ACCEPTED]):
+        return False, "User is already in ride or waiting for decision"
+    if ride.available_seats < 1:
+        return False, "There are no empty seats"
+
+    current_date = datetime.datetime.now(datetime.timezone.utc)
+    if current_date > ride.start_date:
+        return False, "Ride already started or is finished"
+
+    return True, "OK"

@@ -7,12 +7,12 @@ from rest_framework.decorators import action
 
 from cities.models import City
 from rides.filters import RideFilter
-from rides.models import Ride
+from rides.models import Ride, Participation
 from rides.serializers import RideSerializer, RideListSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
+from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info, verify_request
 from users.models import User
 from utils.CustomPagination import CustomPagination
 
@@ -145,7 +145,7 @@ class RideViewSet(viewsets.ModelViewSet):
         Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
         :param request:
         :param pk: User ID
-        :returns: List of user's rides.
+        :return: List of user's rides.
         """
 
         try:
@@ -171,3 +171,32 @@ class RideViewSet(viewsets.ModelViewSet):
 
         filtered_rides = self.filter_queryset(rides)
         return self._get_paginated_queryset(filtered_rides)
+
+    # TODO authorization
+    @action(detail=True, methods=['post'])
+    def request(self, request, pk=None):
+        """
+        Endpoint for sending request to join a ride.
+        :param request:
+        :param pk:
+        :return:
+        """
+        parameters = request.data
+        try:
+            requesting_user = User.objects.get(user_id=parameters['user_id'])
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        instance = self.get_object()
+
+        is_correct, message = verify_request(user=requesting_user, ride=instance)
+        if is_correct:
+            through_defaults = {
+                'decision': Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING}
+
+            instance.passengers.add(requesting_user, through_defaults=through_defaults)
+            instance.save()
+
+            return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
