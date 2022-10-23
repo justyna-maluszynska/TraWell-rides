@@ -203,6 +203,7 @@ class RideViewSet(viewsets.ModelViewSet):
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
 
+    # TODO Authorization
     @action(detail=False, methods=['post'], url_path=r'request/(?P<request_id>[^/.]+)', )
     def request(self, request, request_id):
         """
@@ -221,13 +222,17 @@ class RideViewSet(viewsets.ModelViewSet):
             requesting_user = User.objects.get(user_id=parameters['user_id'])
             if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
                 decision = parameters['decision']
-                participation.decision = decision
-                participation.save()
-                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully changed to {decision}',
-                                    safe=False)
+                if decision in Participation.Decision.choices:
+                    participation.decision = decision
+                    participation.save()
+                    return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully changed to {decision}',
+                                        safe=False)
+                else:
+                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Invalid decision parameter value",
+                                        safe=False)
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
                                 data=f"Request do not have {participation.Decision.PENDING} status", safe=False)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
-        except KeyError:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Missing parameter: user_id", safe=False)
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
