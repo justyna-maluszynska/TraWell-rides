@@ -36,6 +36,10 @@ class Ride(models.Model):
 
         return self.seats - len(self.passengers.filter(passenger__decision='accepted'))
 
+    @property
+    def can_driver_edit(self):
+        return not self.passengers.filter(passenger__decision__in=['accepted', 'pending']).exists()
+
     def save(self, *args, **kwargs):
         super(Ride, self).save(*args, **kwargs)
 
