@@ -29,13 +29,31 @@ class ParticipationNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Participation
-        fields = ('user', 'decision')
+        fields = ('id', 'user', 'decision')
 
 
 class CoordinatesNestedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coordinate
         fields = ('lat', 'lng', 'sequence_no')
+
+
+class RidePersonal(serializers.ModelSerializer):
+    city_from = CityNestedSerializer(many=False)
+    city_to = CityNestedSerializer(many=False)
+    duration = serializers.SerializerMethodField()
+    driver = UserNestedSerializer(many=False)
+    can_driver_edit = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Ride
+        fields = (
+            'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'duration', 'can_driver_edit',
+            'driver',)
+        extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
+
+    def get_duration(self, obj):
+        return get_duration(obj)
 
 
 class RideListSerializer(serializers.ModelSerializer):
