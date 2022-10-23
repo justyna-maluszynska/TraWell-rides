@@ -12,7 +12,7 @@ from rides.serializers import RideSerializer, RideListSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info
+from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info, verify_request
 from users.models import User
 from utils.CustomPagination import CustomPagination
 
@@ -183,27 +183,14 @@ class RideViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
 
-        if instance.driver_id == requesting_user.user_id:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Driver cannot send request to join his ride",
-                                safe=False)
-        if instance.passengers.filter(user_id=requesting_user.user_id, passenger__decision__in=['accepted', 'pending']):
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST,
-                                data="User is already in ride or waiting for decision",
-                                safe=False)
+        is_correct, message = verify_request(user=requesting_user, ride=instance)
+        if is_correct:
+            through_defaults = {
+                'decision': Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING}
 
-        if instance.available_seats < 1:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="There are no empty seats", safe=False)
+            instance.passengers.add(requesting_user, through_defaults=through_defaults)
+            instance.save()
 
-        current_date = datetime.datetime.now(datetime.timezone.utc)
-
-        if current_date > instance.start_date:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Ride already started or is finished",
-                                safe=False)
-
-        through_defaults = {
-            'decision': Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING}
-
-        instance.passengers.add(requesting_user, through_defaults=through_defaults)
-        instance.save()
-
-        return JsonResponse('Request successfully sent', safe=False)
+            return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
