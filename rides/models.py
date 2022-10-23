@@ -56,15 +56,16 @@ class Participation(models.Model):
         self.ride.available_seats = self.ride.get_available_seats
         self.ride.save()
 
+    def save(self, *args, **kwargs):
+        super(Participation, self).save(*args, **kwargs)
+        self.ride.available_seats = self.ride.get_available_seats
+        self.ride.save()
+
 
 def participation_changed(sender, instance, action, **kwargs):
     if action in 'post_add':
         instance.available_seats = instance.get_available_seats
         instance.save()
-    # if action in 'pre_delete':
-    #     print(instance)
-    # if action in 'post_delete':
-    #     print(instance)
 
 
 m2m_changed.connect(participation_changed, sender=Ride.passengers.through)
