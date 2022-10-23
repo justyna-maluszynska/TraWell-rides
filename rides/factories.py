@@ -24,7 +24,6 @@ class RideFactory(factory.django.DjangoModelFactory):
     description = factory.Faker('text', max_nb_chars=300)
     driver = factory.SubFactory(UserFactory)
     vehicle = factory.SubFactory(VehicleFactory)
-    available_seats = 0
 
     @factory.post_generation
     def passengers(self, create, extracted):

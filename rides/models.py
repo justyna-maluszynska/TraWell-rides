@@ -43,10 +43,11 @@ class Participation(models.Model):
         ACCEPTED = 'accepted'
         DECLINED = 'declined'
         PENDING = 'pending'
+        CANCELLED = 'cancelled'
 
     ride = models.ForeignKey(Ride, on_delete=models.SET_NULL, null=True)
     user = models.ForeignKey(User, related_name='passenger', on_delete=models.SET_NULL, null=True)
-    decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=8)
+    decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=9)
 
     def _update_available_seats(self, prev_decision: str = '', force_delete: bool = False):
         if force_delete and self.decision == 'accepted':
