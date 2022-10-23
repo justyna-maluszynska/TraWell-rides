@@ -193,12 +193,8 @@ class RideViewSet(viewsets.ModelViewSet):
 
         is_correct, message = verify_request(user=requesting_user, ride=instance)
         if is_correct:
-            through_defaults = {
-                'decision': Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING}
-
-            instance.passengers.add(requesting_user, through_defaults=through_defaults)
-            instance.save()
-
+            decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
+            Participation.objects.create(ride=instance, user=requesting_user, decision=decision)
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
