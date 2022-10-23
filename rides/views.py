@@ -145,7 +145,7 @@ class RideViewSet(viewsets.ModelViewSet):
         Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
         :param request:
         :param pk: User ID
-        :returns: List of user's rides.
+        :return: List of user's rides.
         """
 
         try:
@@ -175,6 +175,12 @@ class RideViewSet(viewsets.ModelViewSet):
     # TODO authorization
     @action(detail=True, methods=['post'])
     def request(self, request, pk=None):
+        """
+        Endpoint for sending request to join a ride.
+        :param request:
+        :param pk:
+        :return:
+        """
         parameters = request.data
         try:
             requesting_user = User.objects.get(user_id=parameters['user_id'])

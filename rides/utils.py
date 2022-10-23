@@ -61,6 +61,12 @@ def find_near_cities(city: dict) -> List[int]:
 
 
 def verify_request(user: User, ride: Ride) -> (bool, str):
+    """
+    Verify if requesting user can join specified ride.
+    :param user: User requesting to join ride
+    :param ride: Ride related to request
+    :return: True if request can be sent, otherwise False and message with more info about verification
+    """
     if ride.driver_id == user.user_id:
         return False, "Driver cannot send request to join his ride"
     if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
