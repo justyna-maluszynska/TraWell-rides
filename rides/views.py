@@ -28,7 +28,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'retrieve': RideSerializer,
         'user_rides': RidePersonal,
     }
-    queryset = Ride.objects.filter()
+    queryset = Ride.objects.filter(is_cancelled=False)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomPagination
@@ -165,6 +165,14 @@ class RideViewSet(viewsets.ModelViewSet):
                 return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data", safe=False)
 
         return super().update(request, *args, **kwargs)
+
+    # TODO authorization
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # TODO check if user is a driver
+        instance.is_cancelled = True
+        instance.save()
+        return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
 
     # TODO authorization
     @action(detail=False, methods=['get'], url_path=r'user_rides/(?P<user_id>[^/.]+)')

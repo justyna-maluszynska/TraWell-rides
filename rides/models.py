@@ -28,6 +28,7 @@ class Ride(models.Model):
     vehicle = models.ForeignKey(Vehicle, related_name='ride', on_delete=models.SET_NULL, blank=False, null=True)
     passengers = models.ManyToManyField(User, blank=True, through='Participation')
     available_seats = models.IntegerField(null=True, blank=True)
+    is_cancelled = models.BooleanField(default=False, blank=False)
 
     @property
     def get_available_seats(self):
