@@ -15,6 +15,7 @@ from rest_framework.filters import OrderingFilter
 from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info, verify_request
 from users.models import User
 from utils.CustomPagination import CustomPagination
+from vehicles.models import Vehicle
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -27,6 +28,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'get_filtered': RideListSerializer,
         'retrieve': RideSerializer,
         'user_rides': RidePersonal,
+        'create': RideSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -137,6 +139,40 @@ class RideViewSet(viewsets.ModelViewSet):
 
         instance.save()
         return instance
+
+    def _extract_ride_data(self, data: dict) -> (dict, dict, int, int, dict):
+        return data.pop('city_from'), data.pop('city_to'), data.pop('driver'), data.pop('vehicle'), data.pop('duration')
+
+    # TODO authorization
+    def create(self, request, *args, **kwargs):
+        data = request.data
+
+        try:
+            city_from, city_to, driver_id, vehicle_id, duration_data = self._extract_ride_data(data)
+
+            city_from_obj, created = City.objects.get_or_create(
+                **{'name': city_from['name'], 'county': city_from['county'], 'state': city_from['state']})
+            city_to_obj, created = City.objects.get_or_create(
+                **{'name': city_to['name'], 'county': city_to['county'], 'state': city_to['state']})
+
+            # TODO in a future, driver will be passed with token
+            driver = User.objects.get(user_id=driver_id)
+            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user_id=driver)
+
+            duration = datetime.timedelta(hours=duration_data['hours'], minutes=duration_data['minutes'])
+            ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=driver, vehicle=vehicle, duration=duration,
+                        **data)
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Driver not found", safe=False)
+        except Vehicle.DoesNotExist:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
+
+        ride.save()
+        serializer = self.get_serializer(ride)
+
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
     # TODO authorization
     def update(self, request, *args, **kwargs):
