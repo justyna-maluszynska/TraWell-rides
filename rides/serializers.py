@@ -49,7 +49,7 @@ class RidePersonal(serializers.ModelSerializer):
         model = Ride
         fields = (
             'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'duration', 'can_driver_edit',
-            'driver',)
+            'driver', 'recurrent')
         extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
 
     def get_duration(self, obj):
