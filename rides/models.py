@@ -43,6 +43,10 @@ class Ride(models.Model):
         return not self.passengers.filter(passenger__decision__in=['accepted', 'pending']).exists()
 
     def save(self, *args, **kwargs):
+        if not self.ride_id:
+            super(Ride, self).save(*args, **kwargs)
+        if not self.available_seats:
+            self.available_seats = self.get_available_seats
         super(Ride, self).save(*args, **kwargs)
 
 

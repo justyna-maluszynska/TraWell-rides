@@ -143,20 +143,23 @@ class RideViewSet(viewsets.ModelViewSet):
         instance.save()
         return instance
 
-    def _extract_ride_data(self, data: dict) -> (dict, dict, int, int, dict):
-        return data.pop('city_from'), data.pop('city_to'), data.pop('driver'), data.pop('vehicle'), data.pop('duration')
+    def _extract_ride_data(self, data: dict) -> (dict, dict, int, int, dict, list):
+        return data.pop('city_from'), data.pop('city_to'), data.pop('driver'), data.pop('vehicle'), data.pop(
+            'duration'), data.pop('coordinates')
 
     # TODO authorization
     def create(self, request, *args, **kwargs):
         data = request.data
 
         try:
-            city_from, city_to, driver_id, vehicle_id, duration_data = self._extract_ride_data(data)
+            city_from, city_to, driver_id, vehicle_id, duration_data, coordinates = self._extract_ride_data(data)
 
             city_from_obj, created = City.objects.get_or_create(
-                **{'name': city_from['name'], 'county': city_from['county'], 'state': city_from['state']})
+                **{'name': city_from['name'], 'county': city_from['county'], 'state': city_from['state'],
+                   'lat': city_from['lat'], 'lng': city_from['lng']})
             city_to_obj, created = City.objects.get_or_create(
-                **{'name': city_to['name'], 'county': city_to['county'], 'state': city_to['state']})
+                **{'name': city_to['name'], 'county': city_to['county'], 'state': city_to['state'],
+                   'lat': city_to['lat'], 'lng': city_to['lng']})
 
             # TODO in a future, driver will be passed with token
             driver = User.objects.get(user_id=driver_id)
@@ -165,6 +168,10 @@ class RideViewSet(viewsets.ModelViewSet):
             duration = datetime.timedelta(hours=duration_data['hours'], minutes=duration_data['minutes'])
             ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=driver, vehicle=vehicle, duration=duration,
                         **data)
+            ride.save()
+            for coordinate in coordinates:
+                Coordinate.objects.create(ride=ride, **coordinate)
+
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
         except User.DoesNotExist:
@@ -172,7 +179,6 @@ class RideViewSet(viewsets.ModelViewSet):
         except Vehicle.DoesNotExist:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
 
-        ride.save()
         serializer = self.get_serializer(ride)
 
         return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
