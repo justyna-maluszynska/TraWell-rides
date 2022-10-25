@@ -145,16 +145,24 @@ class RideViewSet(viewsets.ModelViewSet):
         instance.save()
         return instance
 
-    def _extract_ride_data(self, data: dict) -> (dict, dict, int, int, dict, list):
-        return data.pop('city_from'), data.pop('city_to'), data.pop('driver'), data.pop('vehicle'), data.pop(
-            'duration'), data.pop('coordinates')
+    def _extract_ride_data(self, data: dict) -> (dict, dict, int, dict, list):
+        return data.pop('city_from'), data.pop('city_to'), data.pop('vehicle'), data.pop('duration'), data.pop(
+            'coordinates')
 
-    # TODO authorization
+    @validate_token
     def create(self, request, *args, **kwargs):
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
         data = request.data
 
         try:
-            city_from, city_to, driver_id, vehicle_id, duration_data, coordinates = self._extract_ride_data(data)
+            city_from, city_to, vehicle_id, duration_data, coordinates = self._extract_ride_data(data)
 
             city_from_obj, created = City.objects.get_or_create(
                 **{'name': city_from['name'], 'county': city_from['county'], 'state': city_from['state'],
@@ -163,12 +171,10 @@ class RideViewSet(viewsets.ModelViewSet):
                 **{'name': city_to['name'], 'county': city_to['county'], 'state': city_to['state'],
                    'lat': city_to['lat'], 'lng': city_to['lng']})
 
-            # TODO in a future, driver will be passed with token
-            driver = User.objects.get(user_id=driver_id)
-            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user_id=driver)
+            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
 
             duration = datetime.timedelta(hours=duration_data['hours'], minutes=duration_data['minutes'])
-            ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=driver, vehicle=vehicle, duration=duration,
+            ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=user, vehicle=vehicle, duration=duration,
                         **data)
             ride.save()
             for coordinate in coordinates:
@@ -185,7 +191,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
-    # TODO authorization
     @validate_token
     def update(self, request, *args, **kwargs):
         """
