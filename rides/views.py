@@ -1,9 +1,8 @@
 import datetime
 
-import jwt
 from django.db.models import QuerySet
 from django.http import JsonResponse
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 
 from cities.models import City
@@ -13,10 +12,10 @@ from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info, verify_request
+from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, validate_hours_minutes
 from users.models import User
-from utils.CustomPagination import CustomPagination
-from utils.validate_token import validate_token
+from rides.utils.CustomPagination import CustomPagination
+from rides.utils.validate_token import validate_token
 from vehicles.models import Vehicle
 
 
@@ -145,10 +144,6 @@ class RideViewSet(viewsets.ModelViewSet):
         instance.save()
         return instance
 
-    def _extract_ride_data(self, data: dict) -> (dict, dict, int, dict, list):
-        return data.pop('city_from'), data.pop('city_to'), data.pop('vehicle'), data.pop('duration'), data.pop(
-            'coordinates')
-
     @validate_token
     def create(self, request, *args, **kwargs):
         token = kwargs['decoded_token']
@@ -162,34 +157,18 @@ class RideViewSet(viewsets.ModelViewSet):
         data = request.data
 
         try:
-            city_from, city_to, vehicle_id, duration_data, coordinates = self._extract_ride_data(data)
-
-            city_from_obj, created = City.objects.get_or_create(
-                **{'name': city_from['name'], 'county': city_from['county'], 'state': city_from['state'],
-                   'lat': city_from['lat'], 'lng': city_from['lng']})
-            city_to_obj, created = City.objects.get_or_create(
-                **{'name': city_to['name'], 'county': city_to['county'], 'state': city_to['state'],
-                   'lat': city_to['lat'], 'lng': city_to['lng']})
-
+            vehicle_id = data.pop('vehicle')
             vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
 
-            duration = datetime.timedelta(hours=duration_data['hours'], minutes=duration_data['minutes'])
-            ride = Ride(city_to=city_to_obj, city_from=city_from_obj, driver=user, vehicle=vehicle, duration=duration,
-                        **data)
-            ride.save()
-            for coordinate in coordinates:
-                Coordinate.objects.create(ride=ride, **coordinate)
+            serializer = self.get_serializer_class()(data=data, context={'driver': user, 'vehicle': vehicle})
+            if serializer.is_valid():
+                ride = serializer.save()
+                return JsonResponse(status=status.HTTP_200_OK, data=self.get_serializer(instance=ride).data, safe=False)
 
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Driver not found", safe=False)
         except Vehicle.DoesNotExist:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
-
-        serializer = self.get_serializer(ride)
-
-        return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
     @validate_token
     def update(self, request, *args, **kwargs):

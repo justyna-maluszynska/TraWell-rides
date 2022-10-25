@@ -31,8 +31,9 @@ class Ride(models.Model):
     is_cancelled = models.BooleanField(default=False, blank=False)
 
     @property
-    def get_available_seats(self):
-        passengers = self.passengers.filter(passenger__decision='accepted').all()
+    def get_available_seats(self) -> int:
+        passengers = self.passengers.filter(
+            passenger__decision__in=[Participation.Decision.PENDING, Participation.Decision.ACCEPTED]).all()
         reserved_seats = sum(
             passenger.passenger.filter(ride_id=self.ride_id).first().reserved_seats for passenger in passengers)
 

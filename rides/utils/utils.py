@@ -14,7 +14,13 @@ def validate_hours_minutes(hours: int, minutes: int):
     return 0 <= hours and 0 <= minutes < 60
 
 
-def calculate_distance(city_from: dict, city_to: City):
+def calculate_distance(city_from: dict, city_to: City) -> float:
+    """
+    Calculates distance between two given cities
+    :param city_from: first city
+    :param city_to: second city
+    :return: distance between two cities in km
+    """
     coord_from = (city_from['lat'], city_from['lng'])
     coord_to = (city_to.lat, city_to.lng)
     return distance.distance(coord_from, coord_to).km
@@ -41,7 +47,7 @@ def find_city_object(city: dict) -> City | None:
     :return: found City object or None
     """
     try:
-        city_obj = City.objects.filter(name=city['name'], state=city['state'], county=city['county']).first()
+        city_obj = City.objects.get(name=city['name'], state=city['state'], county=city['county'])
         return city_obj
     except City.DoesNotExist:
         return None
@@ -63,6 +69,7 @@ def find_near_cities(city: dict) -> List[int]:
 def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     """
     Verify if requesting user can join specified ride.
+    :param seats: Requested seats to book
     :param user: User requesting to join ride
     :param ride: Ride related to request
     :return: True if request can be sent, otherwise False and message with more info about verification
