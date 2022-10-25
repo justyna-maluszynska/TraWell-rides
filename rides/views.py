@@ -32,7 +32,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'user_rides': RidePersonal,
         'create': RideSerializer,
     }
-    queryset = Ride.objects.filter(is_cancelled=False)
+    queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomPagination
@@ -54,8 +54,8 @@ class RideViewSet(viewsets.ModelViewSet):
 
         if city_to_obj is not None:
             queryset = self.get_queryset()
-            queryset = queryset.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
-                                       city_to__state=city_to_obj.state, city_to__county=city_to_obj.county,
+            queryset = queryset.filter(city_to__name=city_to_obj.name, city_to__state=city_to_obj.state,
+                                       city_to__county=city_to_obj.county,
                                        available_seats__gt=0)
 
             if not queryset.exists():
@@ -272,10 +272,9 @@ class RideViewSet(viewsets.ModelViewSet):
             user_ride_type = request.GET['user_type']
 
             if user_ride_type == 'driver':
-                rides = queryset.filter(driver=user, start_date__gt=datetime.datetime.today())
+                rides = queryset.filter(driver=user)
             elif user_ride_type == 'passenger':
-                rides = queryset.filter(start_date__gt=datetime.datetime.today(), passengers=user,
-                                        participation__decision=Participation.Decision.ACCEPTED)
+                rides = queryset.filter(passengers=user, participation__decision=Participation.Decision.ACCEPTED)
             else:
                 return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Invalid user_type parameter", safe=False)
         except KeyError as e:
@@ -298,93 +297,121 @@ class RideViewSet(viewsets.ModelViewSet):
         filtered_rides = self.filter_queryset(rides)
         return self._get_paginated_queryset(filtered_rides)
 
-    # TODO authorization
+    @validate_token
     @action(detail=True, methods=['post'])
-    def send_request(self, request, pk=None):
+    def send_request(self, request, pk=None, *args, **kwargs):
         """
         Endpoint for sending request to join a ride.
         :param request:
         :param pk:
         :return:
         """
-        parameters = request.data
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
         try:
-            requesting_user = User.objects.get(user_id=parameters['requestor_id'])
-            seats_no = parameters['seats']
+            user = User.objects.get(email=user_email)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        parameters = request.data
+        try:
+            seats_no = parameters['seats']
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
 
         instance = self.get_object()
 
-        is_correct, message = verify_request(user=requesting_user, ride=instance, seats=seats_no)
+        is_correct, message = verify_request(user=user, ride=instance, seats=seats_no)
 
         if is_correct:
             decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
-            Participation.objects.create(ride=instance, user=requesting_user, decision=decision,
-                                         reserved_seats=seats_no)
+            Participation.objects.create(ride=instance, user=user, decision=decision, reserved_seats=seats_no)
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
 
-    # TODO Authorization
+    @validate_token
     @action(detail=False, methods=['post'], url_path=r'request/(?P<request_id>[^/.]+)', )
-    def request(self, request, request_id):
+    def request(self, request, request_id, *args, **kwargs):
         """
         Endpoint for drivers to accept or decline pending requests.
         :param request:
         :param request_id:
         :return:
         """
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
         try:
             participation = Participation.objects.get(id=request_id)
         except Participation.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
 
-        data = request.data
-        try:
-            requesting_user = User.objects.get(user_id=data['driver_id'])
-            if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
-                decision = data['decision']
-                if decision in [choice[0] for choice in Participation.Decision.choices]:
-                    participation.decision = decision
-                    participation.save()
-                    return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully changed to {decision}',
-                                        safe=False)
-                else:
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Invalid decision parameter value",
-                                        safe=False)
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
-                                data=f"Request do not have {participation.Decision.PENDING} status", safe=False)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
-        except KeyError as e:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
+        if participation.ride.driver == user:
+            data = request.data
+            try:
+                requesting_user = User.objects.get(user_id=data['driver_id'])
+                if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
+                    decision = data['decision']
+                    if decision in [choice[0] for choice in Participation.Decision.choices]:
+                        participation.decision = decision
+                        participation.save()
+                        return JsonResponse(status=status.HTTP_200_OK,
+                                            data=f'Request successfully changed to {decision}',
+                                            safe=False)
+                    else:
+                        return JsonResponse(status=status.HTTP_400_BAD_REQUEST,
+                                            data=f"Invalid decision parameter value",
+                                            safe=False)
+                return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
+                                    data=f"Request do not have {participation.Decision.PENDING} status", safe=False)
+            except User.DoesNotExist:
+                return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+            except KeyError as e:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete request",
+                                safe=False)
 
-    # TODO Authorization
+    @validate_token
     @request.mapping.delete
-    def delete_request(self, request, request_id):
+    def delete_request(self, request, request_id, *args, **kwargs):
         """
         Endpoint for removing sent requests
         :param request:
         :param request_id:
         :return:
         """
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
         try:
             participation = Participation.objects.get(id=request_id)
         except Participation.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
 
-        try:
-            # TODO check if requesting user is a passenger of this participation
-            if participation.decision != Participation.Decision.CANCELLED:
-                participation.decision = Participation.Decision.CANCELLED
-                participation.save()
-                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
-            else:
-                return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
-                                    safe=False)
-        except KeyError as e:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
+        if participation.user == user:
+            try:
+                if participation.decision != Participation.Decision.CANCELLED:
+                    participation.decision = Participation.Decision.CANCELLED
+                    participation.save()
+                    return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
+                else:
+                    return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
+                                        safe=False)
+            except KeyError as e:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
+                                data="User not allowed to delete request", safe=False)
