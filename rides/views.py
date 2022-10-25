@@ -214,15 +214,25 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return super().update(request, *args, **kwargs)
 
-    # TODO authorization
+    @validate_token
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # TODO check if user is a driver
-        instance.is_cancelled = True
-        instance.save()
-        return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
+        token = kwargs['decoded_token']
+        user_email = token['email']
 
-    # TODO authorization
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        instance = self.get_object()
+        if instance.driver == user:
+            instance.is_cancelled = True
+            instance.save()
+            return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete ride",
+                                safe=False)
+
     @validate_token
     @action(detail=False, methods=['get'])
     def user_rides(self, request, *args, **kwargs):

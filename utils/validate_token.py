@@ -20,4 +20,5 @@ def validate_token(func):
             return JsonResponse(data='Token decoding failure', status=status.HTTP_401_UNAUTHORIZED, safe=False)
 
         return func(self, request, decoded_token=decoded_token, *args, **kwargs)
+
     return inner
