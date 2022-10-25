@@ -230,12 +230,23 @@ class RideViewSet(viewsets.ModelViewSet):
         """
 
         try:
-            driver = User.objects.get(user_id=user_id)
+            user = User.objects.get(user_id=user_id)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
         queryset = self.get_queryset()
-        rides = queryset.filter(driver=driver, start_date__gt=datetime.datetime.today())
+        try:
+            user_ride_type = request.GET['user_type']
+
+            if user_ride_type == 'driver':
+                rides = queryset.filter(driver=user, start_date__gt=datetime.datetime.today())
+            elif user_ride_type == 'passenger':
+                rides = queryset.filter(start_date__gt=datetime.datetime.today(), passengers=user,
+                                        participation__decision=Participation.Decision.ACCEPTED)
+            else:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Invalid user_type parameter", safe=False)
+        except KeyError as e:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
         try:
             city_from_dict = get_city_info(request.GET, 'from')
             rides = rides.filter(city_from__name=city_from_dict['name'], city_from__state=city_from_dict['state'],
