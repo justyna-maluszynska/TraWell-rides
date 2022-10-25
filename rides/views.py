@@ -195,24 +195,37 @@ class RideViewSet(viewsets.ModelViewSet):
         :param kwargs:
         :return:
         """
-        if request.method == 'PATCH':
-            instance = self.get_object()
+        token = kwargs['decoded_token']
+        user_email = token['email']
 
-            if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
-                update_data = request.data
-                instance = self._update_ride_nested_fields(update_data)
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
-                serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                    serializer = self.get_serializer(instance)
-                    return JsonResponse(serializer.data, safe=False)
+        instance = self.get_object()
 
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
-            else:
-                return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data", safe=False)
+        if instance.driver == user:
+            if request.method == 'PATCH':
+                if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
+                    update_data = request.data
+                    instance = self._update_ride_nested_fields(update_data)
 
-        return super().update(request, *args, **kwargs)
+                    serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
+                    if serializer.is_valid():
+                        serializer.save()
+                        serializer = self.get_serializer(instance)
+                        return JsonResponse(serializer.data, safe=False)
+
+                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+                else:
+                    return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data",
+                                        safe=False)
+
+            return super().update(request, *args, **kwargs)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update ride",
+                                safe=False)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
