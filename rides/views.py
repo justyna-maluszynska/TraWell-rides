@@ -50,8 +50,9 @@ class RideViewSet(viewsets.ModelViewSet):
         city_to_obj = find_city_object(city_to)
 
         if city_to_obj is not None:
-            queryset = Ride.objects.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
-                                           city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
+            queryset = self.get_queryset()
+            queryset = queryset.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
+                                       city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
 
             if not queryset.exists():
                 # There are no rides to given city destination, no sense to check the rest of parameters
@@ -225,7 +226,8 @@ class RideViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
-        rides = Ride.objects.filter(driver=driver, start_date__gt=datetime.datetime.today())
+        queryset = self.get_queryset()
+        rides = queryset.filter(driver=driver, start_date__gt=datetime.datetime.today())
         try:
             city_from_dict = get_city_info(request.GET, 'from')
             rides = rides.filter(city_from__name=city_from_dict['name'], city_from__state=city_from_dict['state'],
@@ -309,7 +311,7 @@ class RideViewSet(viewsets.ModelViewSet):
     @request.mapping.delete
     def delete_request(self, request, request_id):
         """
-        Endpoint for removing sent requests.
+        Endpoint for removing sent requests
         :param request:
         :param request_id:
         :return:
