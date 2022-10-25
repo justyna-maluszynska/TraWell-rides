@@ -32,10 +32,11 @@ class Ride(models.Model):
 
     @property
     def get_available_seats(self):
-        if self.ride_id is None:
-            return None
+        passengers = self.passengers.filter(passenger__decision='accepted').all()
+        reserved_seats = sum(
+            passenger.passenger.filter(ride_id=self.ride_id).first().reserved_seats for passenger in passengers)
 
-        return self.seats - len(self.passengers.filter(passenger__decision='accepted'))
+        return self.seats - reserved_seats
 
     @property
     def can_driver_edit(self):
@@ -55,6 +56,7 @@ class Participation(models.Model):
     ride = models.ForeignKey(Ride, on_delete=models.SET_NULL, null=True)
     user = models.ForeignKey(User, related_name='passenger', on_delete=models.SET_NULL, null=True)
     decision = models.CharField(choices=Decision.choices, default=Decision.PENDING, max_length=9)
+    reserved_seats = models.IntegerField(default=1, blank=False, null=False)
 
     def delete(self, using=None, keep_parents=False):
         super(Participation, self).delete(using, keep_parents)

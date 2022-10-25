@@ -8,6 +8,5 @@ class Vehicle(models.Model):
     make = models.CharField(max_length=20, null=False)
     model = models.CharField(max_length=30, null=False)
     color = models.CharField(max_length=20)
-    user = models.ForeignKey(User, related_name='vehicles', on_delete=models.CASCADE, blank=False, null=False,
-                             default=1)
+    user = models.ForeignKey(User, related_name='vehicles', on_delete=models.CASCADE, blank=False, null=True)
     # default is temporary

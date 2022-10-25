@@ -60,7 +60,7 @@ def find_near_cities(city: dict) -> List[int]:
     return near_cities_ids
 
 
-def verify_request(user: User, ride: Ride) -> (bool, str):
+def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     """
     Verify if requesting user can join specified ride.
     :param user: User requesting to join ride
@@ -72,8 +72,8 @@ def verify_request(user: User, ride: Ride) -> (bool, str):
     if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
                                                                              Participation.Decision.ACCEPTED]):
         return False, "User is already in ride or waiting for decision"
-    if ride.available_seats < 1:
-        return False, "There are no empty seats"
+    if seats > ride.available_seats < 1:
+        return False, "There are not enough seats"
 
     current_date = datetime.datetime.now(datetime.timezone.utc)
     if current_date > ride.start_date:

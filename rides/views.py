@@ -41,18 +41,20 @@ class RideViewSet(viewsets.ModelViewSet):
 
     def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
         """
-        Gets queryset with cities near the starting city (city_from). The accepted range in km is defined in MAX_DISTANCE.
+        Gets queryset containing rides from cities near the starting city (city_from).
+        The accepted range in km is defined in MAX_DISTANCE.
 
         :param city_from: dictionary with starting city data
         :param city_to: dictionary with destination city data
-        :return: queryset with all rides from city_from + nearest cities to city_to
+        :return: queryset with all available rides from city_from + nearest cities to city_to
         """
         city_to_obj = find_city_object(city_to)
 
         if city_to_obj is not None:
             queryset = self.get_queryset()
             queryset = queryset.filter(start_date__gt=datetime.datetime.today(), city_to__name=city_to_obj.name,
-                                       city_to__state=city_to_obj.state, city_to__county=city_to_obj.county)
+                                       city_to__state=city_to_obj.state, city_to__county=city_to_obj.county,
+                                       available_seats__gt=0)
 
             if not queryset.exists():
                 # There are no rides to given city destination, no sense to check the rest of parameters
@@ -258,6 +260,7 @@ class RideViewSet(viewsets.ModelViewSet):
         parameters = request.data
         try:
             requesting_user = User.objects.get(user_id=parameters['requestor_id'])
+            seats_no = parameters['seats']
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
         except KeyError as e:
@@ -265,10 +268,12 @@ class RideViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
 
-        is_correct, message = verify_request(user=requesting_user, ride=instance)
+        is_correct, message = verify_request(user=requesting_user, ride=instance, seats=seats_no)
+
         if is_correct:
             decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
-            Participation.objects.create(ride=instance, user=requesting_user, decision=decision)
+            Participation.objects.create(ride=instance, user=requesting_user, decision=decision,
+                                         reserved_seats=seats_no)
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
