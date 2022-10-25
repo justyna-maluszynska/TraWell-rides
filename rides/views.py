@@ -1,5 +1,6 @@
 import datetime
 
+import jwt
 from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
@@ -15,6 +16,7 @@ from rest_framework.filters import OrderingFilter
 from rides.utils import validate_hours_minutes, find_city_object, find_near_cities, get_city_info, verify_request
 from users.models import User
 from utils.CustomPagination import CustomPagination
+from utils.validate_token import validate_token
 from vehicles.models import Vehicle
 
 
@@ -184,6 +186,7 @@ class RideViewSet(viewsets.ModelViewSet):
         return JsonResponse(serializer.data, status=status.HTTP_200_OK, safe=False)
 
     # TODO authorization
+    @validate_token
     def update(self, request, *args, **kwargs):
         """
         Endpoint for updating Ride object.
@@ -220,17 +223,19 @@ class RideViewSet(viewsets.ModelViewSet):
         return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
 
     # TODO authorization
-    @action(detail=False, methods=['get'], url_path=r'user_rides/(?P<user_id>[^/.]+)')
-    def user_rides(self, request, user_id):
+    @validate_token
+    @action(detail=False, methods=['get'])
+    def user_rides(self, request, *args, **kwargs):
         """
         Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
-        :param user_id:
         :param request:
         :return: List of user's rides.
         """
+        token = kwargs['decoded_token']
+        user_email = token['email']
 
         try:
-            user = User.objects.get(user_id=user_id)
+            user = User.objects.get(email=user_email)
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
