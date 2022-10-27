@@ -96,7 +96,7 @@ class RideSerializer(serializers.ModelSerializer):
     vehicle = VehicleNestedSerializer(many=False, required=False)
     duration = serializers.SerializerMethodField()
     passengers = ParticipationNestedSerializer(source='participation_set', many=True, required=False)
-    coordinates = CoordinatesNestedSerializer(many=True, required=False)
+    coordinates = CoordinatesNestedSerializer(many=True)
 
     class Meta:
         model = Ride
@@ -104,6 +104,14 @@ class RideSerializer(serializers.ModelSerializer):
                   'recurrent', 'automatic_confirm', 'description', 'driver', 'vehicle', 'duration', 'available_seats',
                   'passengers', 'coordinates')
         depth = 1
+
+    # def update(self, instance, validated_data):
+    #     instance.area_from = validated_data.get('area_from', instance.area_from)
+    #     instance.area_to = validated_data.get('area_to', instance.area_to)
+    #     instance.start_date = validated_data.get('start_date', instance.start_date)
+    #     instance.price = validated_data.get('price', instance.price)
+    #     instance.seats = validated_data.get('seats', instance.seats)
+    #     instance.automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
 
     def create(self, validated_data, **kwargs):
         driver = self.context['driver']
