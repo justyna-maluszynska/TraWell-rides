@@ -105,13 +105,35 @@ class RideSerializer(serializers.ModelSerializer):
                   'passengers', 'coordinates')
         depth = 1
 
-    # def update(self, instance, validated_data):
-    #     instance.area_from = validated_data.get('area_from', instance.area_from)
-    #     instance.area_to = validated_data.get('area_to', instance.area_to)
-    #     instance.start_date = validated_data.get('start_date', instance.start_date)
-    #     instance.price = validated_data.get('price', instance.price)
-    #     instance.seats = validated_data.get('seats', instance.seats)
-    #     instance.automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
+    def update(self, instance, validated_data, **kwargs):
+        requested_city_from = validated_data.get('city_from', instance.city_from)
+        if type(requested_city_from) is dict:
+            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            instance.city_from = city_from
+
+        requested_city_to = validated_data.get('city_to', instance.city_to)
+        if type(requested_city_to) is dict:
+            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            instance.city_to = city_to
+
+        # instance.coordinates.all().delete()
+        # coordinates = validated_data.get('coordinates')
+        #
+        # for coordinate in coordinates:
+        #     Coordinate.objects.update_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
+        #                                         defaults={'sequence_no': coordinate['sequence_no']})
+
+        instance.duration = self.context.get('duration', instance.duration)
+        instance.vehicle = self.context.get('vehicle', instance.vehicle)
+        instance.area_from = validated_data.get('area_from', instance.area_from)
+        instance.area_to = validated_data.get('area_to', instance.area_to)
+        instance.start_date = validated_data.get('start_date', instance.start_date)
+        instance.price = validated_data.get('price', instance.price)
+        instance.seats = validated_data.get('seats', instance.seats)
+        instance.automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
+        instance.description = validated_data.get('description', instance.description)
+        instance.save()
+        return instance
 
     def create(self, validated_data, **kwargs):
         driver = self.context['driver']

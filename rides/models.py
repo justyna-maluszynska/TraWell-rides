@@ -48,6 +48,7 @@ class Ride(models.Model):
             super(Ride, self).save(*args, **kwargs)
         if not self.available_seats:
             self.available_seats = self.get_available_seats
+        self.available_seats = self.get_available_seats
         super(Ride, self).save(*args, **kwargs)
 
 

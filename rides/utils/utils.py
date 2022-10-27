@@ -6,6 +6,7 @@ from geopy import distance
 from cities.models import City
 from rides.models import Ride, Participation
 from users.models import User
+from vehicles.models import Vehicle
 
 MAX_DISTANCE = 10
 
@@ -27,6 +28,18 @@ def validate_duration(value: dict) -> bool:
         return True
     except KeyError:
         return False
+
+
+def get_duration(data: dict) -> datetime.timedelta or None:
+    duration = None
+    try:
+        duration_data = data.pop('duration')
+        if validate_duration(duration_data):
+            duration = convert_duration(duration_data)
+    except KeyError:
+        pass
+    finally:
+        return duration
 
 
 def calculate_distance(city_from: dict, city_to: City) -> float:
@@ -79,6 +92,24 @@ def find_near_cities(city: dict) -> List[int]:
     near_cities_ids = [near_city.city_id for near_city in queryset if
                        calculate_distance(city, near_city) <= MAX_DISTANCE]
     return near_cities_ids
+
+
+def get_user_vehicle(data, user) -> Vehicle or None:
+    vehicle = None
+    try:
+        vehicle_id = data.pop('vehicle')
+        if user.private:
+            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+    except KeyError:
+        pass
+    except Vehicle.DoesNotExist:
+        pass
+    finally:
+        return vehicle
+
+
+def filter_input_data(data: dict, expected_keys: list) -> dict:
+    return {key: value for key, value in data.items() if key in expected_keys}
 
 
 def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):

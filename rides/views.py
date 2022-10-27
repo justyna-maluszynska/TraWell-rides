@@ -2,22 +2,20 @@ import datetime
 
 from django.db.models import QuerySet
 from django.http import JsonResponse
-from rest_framework import viewsets, status, serializers
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 
-from cities.models import City
 from rides.filters import RideFilter
-from rides.models import Ride, Participation, Coordinate
+from rides.models import Ride, Participation
 from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, validate_hours_minutes, \
-    convert_duration, validate_duration
+from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, get_user_vehicle, \
+    filter_input_data, get_duration
 from users.models import User
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
-from vehicles.models import Vehicle
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -40,9 +38,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action) or RideSerializer
-
-    def _clear_input_data(self, data: dict, expected_keys: list) -> dict:
-        return {key: value for key, value in data.items() if key in expected_keys}
 
     def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
         """
@@ -106,72 +101,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return self._get_paginated_queryset(filtered_queryset)
 
-    def _update_ride_nested_fields(self, update_data: dict):
-        instance = self.get_object()
-
-        try:
-            requested_city_from = update_data.pop('city_from')
-            city_from, was_created = City.objects.get_or_create(**requested_city_from)
-            instance.city_from = city_from
-        except KeyError:
-            pass
-
-        try:
-            requested_city_to = update_data.pop('city_to')
-            city_to, was_created = City.objects.get_or_create(**requested_city_to)
-            instance.city_to = city_to
-        except KeyError:
-            pass
-
-        try:
-            duration = update_data.pop('duration')
-            hours = duration['hours']
-            minutes = duration['minutes']
-            if validate_hours_minutes(hours, minutes):
-                instance.duration = datetime.timedelta(hours=hours, minutes=minutes)
-            else:
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong duration parameter",
-                                    safe=False)
-        except KeyError:
-            pass
-
-        try:
-            instance.coordinates.all().delete()
-            coordinates = update_data.pop('coordinates')
-
-            for coordinate in coordinates:
-                Coordinate.objects.update_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
-                                                    defaults={'sequence_no': coordinate['sequence_no']})
-        except KeyError:
-            pass
-
-        instance.save()
-        return instance
-
-    def _get_user_vehicle(self, data, user) -> Vehicle or None:
-        vehicle = None
-        try:
-            vehicle_id = data.pop('vehicle')
-            if user.private:
-                vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-        except KeyError:
-            pass
-        except Vehicle.DoesNotExist:
-            pass
-        finally:
-            return vehicle
-
-    def _get_duration(self, data: dict) -> datetime.timedelta or None:
-        duration = None
-        try:
-            duration_data = data.pop('duration')
-            if validate_duration(duration_data):
-                duration = convert_duration(duration_data)
-        except KeyError:
-            pass
-        finally:
-            return duration
-
     def _validate_values(self, vehicle, duration, serializer, user) -> (bool, str):
         if vehicle is None and user.private:
             return False, 'Vehicle parameter is invalid'
@@ -183,13 +112,13 @@ class RideViewSet(viewsets.ModelViewSet):
 
     def _create_new_ride(self, request, user):
         data = request.data
-        cleared_data = self._clear_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                                   'start_date', 'price', 'seats', 'vehicle',
-                                                                   'duration', 'description', 'coordinates',
-                                                                   'automatic_confirm'])
+        cleared_data = filter_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
+                                                              'start_date', 'price', 'seats', 'vehicle',
+                                                              'duration', 'description', 'coordinates',
+                                                              'automatic_confirm'])
 
-        vehicle = self._get_user_vehicle(data=cleared_data, user=user)
-        duration = self._get_duration(cleared_data)
+        vehicle = get_user_vehicle(data=cleared_data, user=user)
+        duration = get_duration(cleared_data)
 
         if user.private:
             cleared_data['automatic_confirm'] = False
@@ -199,7 +128,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
         if is_valid:
-            ride = serializer.save()
+            serializer.save()
             return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
@@ -217,74 +146,97 @@ class RideViewSet(viewsets.ModelViewSet):
         response = self._create_new_ride(request=request, user=user)
         return response
 
-    # def _update_partial_ride(self, update_data):
-    #     instance = self.get_object()
-    #
-    #     cleared_data = self._clear_input_data(update_data, expected_keys=['seats', 'vehicle', 'description'])
-    #     if cleared_data['seats'] < instance.seats - instance.available_seats:
-    #         return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter", safe=False)
-    #
-    #     vehicle_id = cleared_data.pop('vehicle')
-    #     vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-    #     serializer = self.get_serializer(instance=instance, data=cleared_data, partial=True)
-    #     if serializer.is_valid():
-    #         serializer.save()
-    #         serializer = self.get_serializer(instance)
-    #         return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-    #
-    # def _update_whole_ride(self, update_data):
-    #     instance = self._update_ride_nested_fields(update_data)
-    #
-    #     serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
-    #     if serializer.is_valid():
-    #         serializer.save()
-    #         serializer = self.get_serializer(instance)
-    #         return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-    #
-    #     return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
-    #
-    # @validate_token
-    # def update(self, request, *args, **kwargs):
-    #     """
-    #     Endpoint for updating Ride object.
-    #     :param request:
-    #     :param args:
-    #     :param kwargs:
-    #     :return:
-    #     """
-    #     token = kwargs['decoded_token']
-    #     user_email = token['email']
-    #
-    #     try:
-    #         user = User.objects.get(email=user_email)
-    #     except User.DoesNotExist:
-    #         return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
-    #
-    #     instance = self.get_object()
-    #
-    #     if instance.driver == user:
-    #         if request.method == 'PATCH':
-    #             update_data = request.data
-    #             if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
-    #                 return self._update_whole_ride(update_data)
-    #             else:
-    #                 # cleared_data = self._clear_input_data(update_data,
-    #                 #                                       expected_keys=['seats', 'vehicle', 'description'])
-    #                 # if cleared_data['seats'] < instance.seats - instance.available_seats:
-    #                 #     return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter",
-    #                 #                         safe=False)
-    #                 # vehicle_id = cleared_data.pop('vehicle')
-    #                 # vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-    #                 # serializer = self.get_serializer(instance=instance, data=cleared_data, partial=True)
-    #                 # if serializer.is_valid():
-    #                 #     serializer.save()
-    #                 #     serializer = self.get_serializer(instance)
-    #                 #     return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-    #
-    #         return super().update(request, *args, **kwargs)
-    #     else:
-    #         return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update ride",
-    #                             safe=False)
+    def _verify_available_seats(self, data):
+        instance = self.get_object()
+
+        if data['seats'] < instance.seats - instance.available_seats:
+            return False
+        return True
+
+    def _update_serializer(self, data, context) -> JsonResponse:
+        instance = self.get_object()
+        serializer = self.get_serializer(instance=instance, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.update(instance=instance, validated_data=data, partial=True, context=context)
+            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+
+        return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors, safe=False)
+
+    def _update_partial_ride(self, update_data, user):
+        context = {}
+
+        if user.private:
+            expected_keys = ['seats', 'vehicle', 'description']
+            vehicle = get_user_vehicle(update_data, user)
+            context['vehicle'] = vehicle
+        else:
+            expected_keys = ['seats', 'automatic_confirm', 'description']
+
+        cleared_data = filter_input_data(update_data, expected_keys=expected_keys)
+        if self._verify_available_seats(data=cleared_data):
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter",
+                                safe=False)
+
+        return self._update_serializer(data=cleared_data, context=context)
+
+    def _update_whole_ride(self, update_data, user) -> JsonResponse:
+        cleared_data = filter_input_data(update_data,
+                                         expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
+                                                        'start_date', 'price', 'seats', 'vehicle',
+                                                        'duration', 'description', 'coordinates',
+                                                        'automatic_confirm'])
+
+        context = {}
+        vehicle = get_user_vehicle(data=cleared_data, user=user)
+        if user.private:
+            context['vehicle'] = vehicle
+
+        duration = get_duration(cleared_data)
+        if duration is not None:
+            context['duration'] = duration
+
+        if user.private:
+            cleared_data['automatic_confirm'] = False
+
+        return self._update_serializer(data=cleared_data, context=context)
+
+    def _is_user_a_driver(self, user) -> bool:
+        return self.get_object().driver == user
+
+    def _has_ride_passengers(self) -> bool:
+        return self.get_object().passengers.filter(
+            passenger__decision__in=[Participation.Decision.ACCEPTED, Participation.Decision.PENDING]).exists()
+
+    def _update_ride(self, request, user) -> JsonResponse:
+        if self._is_user_a_driver(user):
+            if request.method == 'PATCH':
+                update_data = request.data
+                if self._has_ride_passengers():
+                    return self._update_partial_ride(update_data, user)
+                else:
+                    return self._update_whole_ride(update_data, user)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
+                                safe=False)
+
+    @validate_token
+    def update(self, request, *args, **kwargs):
+        """
+        Endpoint for updating Ride object.
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        return self._update_ride(request=request, user=user)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
