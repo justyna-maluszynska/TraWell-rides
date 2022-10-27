@@ -167,7 +167,12 @@ class RideViewSet(viewsets.ModelViewSet):
                                                                        'automatic_confirm'])
 
             vehicle_id = cleared_data.pop('vehicle')
-            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+
+            if user.private:
+                cleared_data['automatic_confirm'] = True
+                vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+            else:
+                vehicle = None
 
             duration_data = cleared_data.pop('duration')
             if validate_duration(duration_data):
@@ -187,46 +192,74 @@ class RideViewSet(viewsets.ModelViewSet):
         except Vehicle.DoesNotExist:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
 
-    @validate_token
-    def update(self, request, *args, **kwargs):
-        """
-        Endpoint for updating Ride object.
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
-
-        instance = self.get_object()
-
-        if instance.driver == user:
-            if request.method == 'PATCH':
-                if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
-                    update_data = request.data
-                    instance = self._update_ride_nested_fields(update_data)
-
-                    serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
-                    if serializer.is_valid():
-                        serializer.save()
-                        serializer = self.get_serializer(instance)
-                        return JsonResponse(serializer.data, safe=False)
-
-                    return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
-                else:
-                    return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Cannot edit ride data",
-                                        safe=False)
-
-            return super().update(request, *args, **kwargs)
-        else:
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update ride",
-                                safe=False)
+    # def _update_partial_ride(self, update_data):
+    #     instance = self.get_object()
+    #
+    #     cleared_data = self._clear_input_data(update_data, expected_keys=['seats', 'vehicle', 'description'])
+    #     if cleared_data['seats'] < instance.seats - instance.available_seats:
+    #         return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter", safe=False)
+    #
+    #     vehicle_id = cleared_data.pop('vehicle')
+    #     vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+    #     serializer = self.get_serializer(instance=instance, data=cleared_data, partial=True)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         serializer = self.get_serializer(instance)
+    #         return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+    #
+    # def _update_whole_ride(self, update_data):
+    #     instance = self._update_ride_nested_fields(update_data)
+    #
+    #     serializer = self.get_serializer(instance=instance, data=update_data, partial=True)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         serializer = self.get_serializer(instance)
+    #         return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+    #
+    #     return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Wrong parameters", safe=False)
+    #
+    # @validate_token
+    # def update(self, request, *args, **kwargs):
+    #     """
+    #     Endpoint for updating Ride object.
+    #     :param request:
+    #     :param args:
+    #     :param kwargs:
+    #     :return:
+    #     """
+    #     token = kwargs['decoded_token']
+    #     user_email = token['email']
+    #
+    #     try:
+    #         user = User.objects.get(email=user_email)
+    #     except User.DoesNotExist:
+    #         return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+    #
+    #     instance = self.get_object()
+    #
+    #     if instance.driver == user:
+    #         if request.method == 'PATCH':
+    #             update_data = request.data
+    #             if not instance.passengers.filter(passenger__decision__in=['accepted', 'pending']):
+    #                 return self._update_whole_ride(update_data)
+    #             else:
+    #                 # cleared_data = self._clear_input_data(update_data,
+    #                 #                                       expected_keys=['seats', 'vehicle', 'description'])
+    #                 # if cleared_data['seats'] < instance.seats - instance.available_seats:
+    #                 #     return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter",
+    #                 #                         safe=False)
+    #                 # vehicle_id = cleared_data.pop('vehicle')
+    #                 # vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+    #                 # serializer = self.get_serializer(instance=instance, data=cleared_data, partial=True)
+    #                 # if serializer.is_valid():
+    #                 #     serializer.save()
+    #                 #     serializer = self.get_serializer(instance)
+    #                 #     return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+    #
+    #         return super().update(request, *args, **kwargs)
+    #     else:
+    #         return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update ride",
+    #                             safe=False)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
