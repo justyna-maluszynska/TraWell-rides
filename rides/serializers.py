@@ -61,9 +61,6 @@ class RidePersonal(serializers.ModelSerializer):
     def get_duration(self, obj):
         return get_duration(obj)
 
-    def validate_duration(self, value):
-        return validate_duration(value)
-
     def validate_start_date(self, value):
         if value < datetime.datetime.now():
             raise serializers.ValidationError("Start date cannot be in the past")
@@ -85,9 +82,6 @@ class RideListSerializer(serializers.ModelSerializer):
 
     def get_duration(self, obj):
         return get_duration(obj)
-
-    def validate_duration(self, value):
-        return validate_duration(value)
 
     def validate_start_date(self, value):
         if value < datetime.datetime.now():
@@ -114,6 +108,7 @@ class RideSerializer(serializers.ModelSerializer):
     def create(self, validated_data, **kwargs):
         driver = self.context['driver']
         vehicle = self.context['vehicle']
+        duration = self.context['duration']
 
         city_from_data = validated_data.pop('city_from')
         city_from, _ = City.objects.get_or_create(**city_from_data)
@@ -122,7 +117,8 @@ class RideSerializer(serializers.ModelSerializer):
 
         coordinates = validated_data.pop('coordinates')
 
-        ride = Ride(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to, **validated_data)
+        ride = Ride(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to, duration=duration,
+                    **validated_data)
         ride.save()
         for coordinate in coordinates:
             Coordinate.objects.create(ride=ride, **coordinate)
@@ -131,9 +127,6 @@ class RideSerializer(serializers.ModelSerializer):
 
     def get_duration(self, obj):
         return get_duration(obj)
-
-    def validate_duration(self, value):
-        return validate_duration(value)
 
     # def validate_start_date(self, value):
     #     if value < datetime.datetime.now():
@@ -145,14 +138,3 @@ def get_duration(obj: Ride):
     total_minutes = int(obj.duration.total_seconds() // 60)
     hours = total_minutes // 60
     return {'hours': hours, 'minutes': total_minutes - hours * 60}
-
-
-def validate_duration(value: dict):
-    try:
-        hours = value['hours']
-        minutes = value['minutes']
-        if 0 > hours or 0 > minutes >= 60:
-            raise serializers.ValidationError("Invalid values of ride duration field")
-        return value
-    except KeyError:
-        raise serializers.ValidationError("Invalid structure of ride duration field")

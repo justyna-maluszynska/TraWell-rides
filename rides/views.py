@@ -12,7 +12,8 @@ from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, validate_hours_minutes
+from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, validate_hours_minutes, \
+    convert_duration, validate_duration
 from users.models import User
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
@@ -39,6 +40,9 @@ class RideViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action) or RideSerializer
+
+    def _clear_input_data(self, data: dict, expected_keys: list) -> dict:
+        return {key: value for key, value in data.items() if key in expected_keys}
 
     def _get_queryset_with_near_cities(self, city_from: dict, city_to: dict) -> QuerySet:
         """
@@ -157,14 +161,27 @@ class RideViewSet(viewsets.ModelViewSet):
         data = request.data
 
         try:
-            vehicle_id = data.pop('vehicle')
+            cleared_data = self._clear_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
+                                                                       'start_date', 'price', 'seats', 'vehicle',
+                                                                       'duration', 'description', 'coordinates',
+                                                                       'automatic_confirm'])
+
+            vehicle_id = cleared_data.pop('vehicle')
             vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
 
-            serializer = self.get_serializer_class()(data=data, context={'driver': user, 'vehicle': vehicle})
+            duration_data = cleared_data.pop('duration')
+            if validate_duration(duration_data):
+                duration = convert_duration(duration_data)
+            else:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Invalid duration parameter", safe=False)
+
+            serializer = self.get_serializer_class()(data=cleared_data,
+                                                     context={'driver': user, 'vehicle': vehicle, 'duration': duration})
             if serializer.is_valid():
                 ride = serializer.save()
                 return JsonResponse(status=status.HTTP_200_OK, data=self.get_serializer(instance=ride).data, safe=False)
-
+            else:
+                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors, safe=False)
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
         except Vehicle.DoesNotExist:

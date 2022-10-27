@@ -14,6 +14,21 @@ def validate_hours_minutes(hours: int, minutes: int):
     return 0 <= hours and 0 <= minutes < 60
 
 
+def convert_duration(duration: dict) -> datetime.timedelta:
+    return datetime.timedelta(hours=duration['hours'], minutes=duration['minutes'])
+
+
+def validate_duration(value: dict) -> bool:
+    try:
+        hours = value['hours']
+        minutes = value['minutes']
+        if 0 > hours or 0 > minutes >= 60:
+            return False
+        return True
+    except KeyError:
+        return False
+
+
 def calculate_distance(city_from: dict, city_to: City) -> float:
     """
     Calculates distance between two given cities
