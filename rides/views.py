@@ -148,6 +148,62 @@ class RideViewSet(viewsets.ModelViewSet):
         instance.save()
         return instance
 
+    def _get_user_vehicle(self, data, user) -> Vehicle or None:
+        vehicle = None
+        try:
+            vehicle_id = data.pop('vehicle')
+            if user.private:
+                vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+        except KeyError:
+            pass
+        except Vehicle.DoesNotExist:
+            pass
+        finally:
+            return vehicle
+
+    def _get_duration(self, data: dict) -> datetime.timedelta or None:
+        duration = None
+        try:
+            duration_data = data.pop('duration')
+            if validate_duration(duration_data):
+                duration = convert_duration(duration_data)
+        except KeyError:
+            pass
+        finally:
+            return duration
+
+    def _validate_values(self, vehicle, duration, serializer, user) -> (bool, str):
+        if vehicle is None and user.private:
+            return False, 'Vehicle parameter is invalid'
+        if duration is None:
+            return False, 'Duration parameter is invalid'
+        if not serializer.is_valid():
+            return False, serializer.errors
+        return True, 'OK'
+
+    def _create_new_ride(self, request, user):
+        data = request.data
+        cleared_data = self._clear_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
+                                                                   'start_date', 'price', 'seats', 'vehicle',
+                                                                   'duration', 'description', 'coordinates',
+                                                                   'automatic_confirm'])
+
+        vehicle = self._get_user_vehicle(data=cleared_data, user=user)
+        duration = self._get_duration(cleared_data)
+
+        if user.private:
+            cleared_data['automatic_confirm'] = False
+
+        serializer = self.get_serializer_class()(data=cleared_data,
+                                                 context={'driver': user, 'vehicle': vehicle, 'duration': duration})
+
+        is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
+        if is_valid:
+            ride = serializer.save()
+            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
+
     @validate_token
     def create(self, request, *args, **kwargs):
         token = kwargs['decoded_token']
@@ -158,39 +214,8 @@ class RideViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
-        data = request.data
-
-        try:
-            cleared_data = self._clear_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                                       'start_date', 'price', 'seats', 'vehicle',
-                                                                       'duration', 'description', 'coordinates',
-                                                                       'automatic_confirm'])
-
-            vehicle_id = cleared_data.pop('vehicle')
-
-            if user.private:
-                cleared_data['automatic_confirm'] = True
-                vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-            else:
-                vehicle = None
-
-            duration_data = cleared_data.pop('duration')
-            if validate_duration(duration_data):
-                duration = convert_duration(duration_data)
-            else:
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Invalid duration parameter", safe=False)
-
-            serializer = self.get_serializer_class()(data=cleared_data,
-                                                     context={'driver': user, 'vehicle': vehicle, 'duration': duration})
-            if serializer.is_valid():
-                ride = serializer.save()
-                return JsonResponse(status=status.HTTP_200_OK, data=self.get_serializer(instance=ride).data, safe=False)
-            else:
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors, safe=False)
-        except KeyError as e:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
-        except Vehicle.DoesNotExist:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Vehicle not found", safe=False)
+        response = self._create_new_ride(request=request, user=user)
+        return response
 
     # def _update_partial_ride(self, update_data):
     #     instance = self.get_object()
