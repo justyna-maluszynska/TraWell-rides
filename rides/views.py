@@ -421,3 +421,22 @@ class RideViewSet(viewsets.ModelViewSet):
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
                                 data="User not allowed to delete request", safe=False)
+
+    @validate_token
+    @action(detail=True, methods=['get'])
+    def check_edition_permissions(self, request, pk=None, *args, **kwargs):
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        instance = self.get_object()
+        if instance.driver == user:
+            full_permission = not self._has_ride_passengers()
+            return JsonResponse(status=status.HTTP_200_OK, data={'full_permission': full_permission}, safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
+                                safe=False)
