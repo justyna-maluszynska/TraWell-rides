@@ -30,6 +30,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'user_rides': RidePersonal,
         'create': RideSerializer,
         'my_requests': ParticipationSerializer,
+        'pending_requests': ParticipationSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -475,5 +476,29 @@ class RideViewSet(viewsets.ModelViewSet):
             requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
         else:
             requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
+
+        return self._get_paginated_queryset(requests)
+
+    @validate_token
+    @action(detail=False, methods=['get'])
+    def pending_requests(self, request, *args, **kwargs):
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        rides = self.get_queryset().filter(driver=user)
+        print(len(rides))
+        rides = self._filter_ride_cities(request, queryset=rides)
+
+        filtered_rides = self.filter_queryset(rides)
+
+        rides_ids = [ride.ride_id for ride in filtered_rides]
+
+        requests = Participation.objects.filter(ride__ride_id__in=rides_ids, ride__driver=user,
+                                                decision=Participation.Decision.PENDING)
 
         return self._get_paginated_queryset(requests)
