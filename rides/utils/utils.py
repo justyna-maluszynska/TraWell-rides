@@ -6,6 +6,7 @@ from geopy import distance
 from cities.models import City
 from rides.models import Ride, Participation
 from users.models import User
+from vehicles.models import Vehicle
 
 MAX_DISTANCE = 10
 
@@ -14,7 +15,40 @@ def validate_hours_minutes(hours: int, minutes: int):
     return 0 <= hours and 0 <= minutes < 60
 
 
-def calculate_distance(city_from: dict, city_to: City):
+def convert_duration(duration: dict) -> datetime.timedelta:
+    return datetime.timedelta(hours=duration['hours'], minutes=duration['minutes'])
+
+
+def validate_duration(value: dict) -> bool:
+    try:
+        hours = value['hours']
+        minutes = value['minutes']
+        if 0 > hours or 0 > minutes >= 60:
+            return False
+        return True
+    except KeyError:
+        return False
+
+
+def get_duration(data: dict) -> datetime.timedelta or None:
+    duration = None
+    try:
+        duration_data = data.pop('duration')
+        if validate_duration(duration_data):
+            duration = convert_duration(duration_data)
+    except KeyError:
+        pass
+    finally:
+        return duration
+
+
+def calculate_distance(city_from: dict, city_to: City) -> float:
+    """
+    Calculates distance between two given cities
+    :param city_from: first city
+    :param city_to: second city
+    :return: distance between two cities in km
+    """
     coord_from = (city_from['lat'], city_from['lng'])
     coord_to = (city_to.lat, city_to.lng)
     return distance.distance(coord_from, coord_to).km
@@ -41,7 +75,7 @@ def find_city_object(city: dict) -> City | None:
     :return: found City object or None
     """
     try:
-        city_obj = City.objects.filter(name=city['name'], state=city['state'], county=city['county']).first()
+        city_obj = City.objects.get(name=city['name'], state=city['state'], county=city['county'])
         return city_obj
     except City.DoesNotExist:
         return None
@@ -60,9 +94,28 @@ def find_near_cities(city: dict) -> List[int]:
     return near_cities_ids
 
 
-def verify_request(user: User, ride: Ride) -> (bool, str):
+def get_user_vehicle(data, user) -> Vehicle or None:
+    vehicle = None
+    try:
+        vehicle_id = data.pop('vehicle')
+        if user.private:
+            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
+    except KeyError:
+        pass
+    except Vehicle.DoesNotExist:
+        pass
+    finally:
+        return vehicle
+
+
+def filter_input_data(data: dict, expected_keys: list) -> dict:
+    return {key: value for key, value in data.items() if key in expected_keys}
+
+
+def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     """
     Verify if requesting user can join specified ride.
+    :param seats: Requested seats to book
     :param user: User requesting to join ride
     :param ride: Ride related to request
     :return: True if request can be sent, otherwise False and message with more info about verification
@@ -72,8 +125,8 @@ def verify_request(user: User, ride: Ride) -> (bool, str):
     if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
                                                                              Participation.Decision.ACCEPTED]):
         return False, "User is already in ride or waiting for decision"
-    if ride.available_seats < 1:
-        return False, "There are no empty seats"
+    if seats > ride.available_seats < 1:
+        return False, "There are not enough seats"
 
     current_date = datetime.datetime.now(datetime.timezone.utc)
     if current_date > ride.start_date:
