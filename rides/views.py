@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 
 from rides.filters import RideFilter
 from rides.models import Ride, Participation
-from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -29,6 +29,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'retrieve': RideSerializer,
         'user_rides': RidePersonal,
         'create': RideSerializer,
+        'my_requests': ParticipationSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -46,7 +47,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         :param city_from: dictionary with starting city data
         :param city_to: dictionary with destination city data
-        :return: queryset with all available rides from city_from + nearest cities to city_to
+        :return: queryset with all available rides from city_from + the nearest cities to city_to
         """
         city_to_obj = find_city_object(city_to)
 
@@ -440,3 +441,32 @@ class RideViewSet(viewsets.ModelViewSet):
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
                                 safe=False)
+
+    @validate_token
+    @action(detail=False, methods=['get'])
+    def my_requests(self, request, *args, **kwargs):
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        decision = ''
+        try:
+            decision = request.GET['decision']
+        except KeyError:
+            pass
+
+        rides = self.get_queryset().filter(passengers=user)
+        filtered_rides = self.filter_queryset(rides)
+
+        rides_ids = [ride.ride_id for ride in filtered_rides]
+        if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED,
+                        Participation.Decision.CANCELLED]:
+            requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
+        else:
+            requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
+
+        return self._get_paginated_queryset(requests)
