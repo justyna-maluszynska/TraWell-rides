@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib import admin
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from cities.models import City
@@ -10,7 +11,42 @@ from vehicles.models import Vehicle
 from django.db.models.signals import m2m_changed
 
 
-# Create your models here.
+class RecurrentRide(models.Model):
+    class FrequencyType(models.TextChoices):
+        DAILY = 'daily'
+        WEEKLY = 'weekly'
+        MONTHLY = 'monthly'
+
+    class WeekDays(models.TextChoices):
+        MONDAY = 'monday'
+        TUESDAY = 'tuesday'
+        WEDNESDAY = 'wednesday'
+        THURSDAY = 'thursday'
+        FRIDAY = 'friday'
+        SATURDAY = 'saturday'
+        SUNDAY = 'sunday'
+
+    ride_id = models.AutoField(primary_key=True)
+    city_from = models.ForeignKey(City, related_name='recur_city_from', blank=False, null=True,
+                                  on_delete=models.SET_NULL)
+    city_to = models.ForeignKey(City, related_name='recur_city_to', blank=False, null=True, on_delete=models.SET_NULL)
+    area_from = models.CharField(max_length=100, blank=True, default="")
+    area_to = models.CharField(max_length=100, blank=True, default="")
+    start_date = models.DateTimeField(null=False)
+    end_date = models.DateTimeField(null=False)
+    frequency_type = models.CharField(choices=FrequencyType.choices, default=FrequencyType.DAILY, max_length=9)
+    frequence = models.IntegerField(default=1, blank=False, null=False)
+    occurrences = ArrayField(models.CharField(max_length=10, choices=WeekDays.choices), blank=True)
+    duration = models.DurationField(blank=False, default=timedelta)
+    price = models.DecimalField(null=False, max_digits=10, decimal_places=2)
+    seats = models.PositiveIntegerField(null=False)
+    automatic_confirm = models.BooleanField(null=False, default=False)
+    description = models.TextField(blank=True, default="")
+    driver = models.ForeignKey(User, on_delete=models.SET_NULL, blank=False, null=True)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, blank=False, null=True)
+    is_cancelled = models.BooleanField(default=False, blank=False)
+
+
 class Ride(models.Model):
     ride_id = models.AutoField(primary_key=True)
     city_from = models.ForeignKey(City, related_name='city_from', blank=False, null=True, on_delete=models.SET_NULL)
@@ -29,6 +65,8 @@ class Ride(models.Model):
     passengers = models.ManyToManyField(User, blank=True, through='Participation')
     available_seats = models.IntegerField(null=True, blank=True)
     is_cancelled = models.BooleanField(default=False, blank=False)
+    recurrent_ride = models.ForeignKey(RecurrentRide, related_name='single_rides', on_delete=models.CASCADE,
+                                       blank=False, null=True)
 
     @property
     def get_available_seats(self) -> int:
