@@ -66,7 +66,7 @@ class Ride(models.Model):
     available_seats = models.IntegerField(null=True, blank=True)
     is_cancelled = models.BooleanField(default=False, blank=False)
     recurrent_ride = models.ForeignKey(RecurrentRide, related_name='single_rides', on_delete=models.CASCADE,
-                                       blank=False, null=True)
+                                       blank=True, null=True, default=None)
 
     @property
     def get_available_seats(self) -> int:
