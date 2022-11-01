@@ -124,7 +124,7 @@ m2m_changed.connect(participation_changed, sender=Ride.passengers.through)
 
 class Coordinate(models.Model):
     coordinate_id = models.AutoField(primary_key=True)
-    ride = models.ForeignKey(Ride, related_name='coordinates', on_delete=models.CASCADE, null=False)
+    ride = models.ForeignKey(Ride, related_name='coordinates', on_delete=models.CASCADE, null=True)
     lat = models.DecimalField(null=False, max_digits=15, decimal_places=6)
     lng = models.DecimalField(null=False, max_digits=15, decimal_places=6)
     sequence_no = models.IntegerField(null=False)

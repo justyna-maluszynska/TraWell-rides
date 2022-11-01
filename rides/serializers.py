@@ -124,12 +124,20 @@ class RideSerializer(serializers.ModelSerializer):
             city_to, was_created = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
 
-        instance.coordinates.all().delete()
-        coordinates = validated_data.get('coordinates')
-
+        coordinates = validated_data.get('coordinates', instance.coordinates.all())
+        new_coordinates = []
         for coordinate in coordinates:
-            Coordinate.objects.get_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
-                                             defaults={'sequence_no': coordinate['sequence_no']})
+            if type(coordinate) is dict:
+                new_coordinates.append(
+                    Coordinate.objects.get_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
+                                                     defaults={'sequence_no': coordinate['sequence_no']})[0])
+            elif type(coordinate) is Coordinate:
+                new_coordinates.append(coordinate)
+        instance.coordinates.clear()
+
+        for coordinate in new_coordinates:
+            coordinate.ride = instance
+            coordinate.save()
 
         instance.duration = self.context.get('duration', instance.duration)
         instance.vehicle = self.context.get('vehicle', instance.vehicle)
