@@ -20,6 +20,12 @@ services:
       - "8001:8001"
     depends_on:
       - db
+    networks:
+      - rabbitmq_network
+
+networks:
+  rabbitmq_network:
+    driver: bridge
 
 volumes:
   postgres_data:

@@ -13,7 +13,7 @@ rides_microservice/__pycache__/
 *$py.class
 *.pyc
 
-.env
+rides_microservice/.env
 
 # C extensions
 *.so
