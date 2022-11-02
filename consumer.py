@@ -93,8 +93,6 @@ channel.basic_consume(queue='users', on_message_callback=callback_users, auto_ac
 channel.basic_consume(queue='vehicles', on_message_callback=callback_vehicles, auto_ack=True)
 
 print('Started Consuming')
-logger.debug("Started Consuming")
-logger.debug("--------------------------")
 
 channel.start_consuming()
 

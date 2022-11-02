@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  db:
+  db_rides:
     image: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data/
@@ -11,17 +11,34 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5433:5432"
-  web:
-    build: .
-    command: bash -c "pip install -r requirements.txt && python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8001"
-    volumes:
-      - .:/rides
-    ports:
-      - "8001:8001"
-    depends_on:
-      - db
     networks:
       - rabbitmq_network
+  
+  # queue:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: web_rides_queue
+  #   command: bash -c "docker exec -it 6bfe5ff4747d bash && python consumer.py"
+  #   depends_on:
+  #     - web_rides
+  #     - web_users
+  #     - rabbitmq
+  #   networks:
+  #     - rabbitmq_network
+
+
+#  web:
+#    build: .
+#    command: bash -c "pip install -r requirements.txt && python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8001"
+#    volumes:
+#      - .:/rides
+#    ports:
+#      - "8001:8001"
+#    depends_on:
+#      - db
+#    networks:
+#      - rabbitmq_network
 
 networks:
   rabbitmq_network:

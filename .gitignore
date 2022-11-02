@@ -6,6 +6,7 @@ users/__pycache__/
 vehicles/__pycache__/
 cities/__pycache__/
 rides_microservice/__pycache__/
+postgres_data/
 
 *.cpython-310.pyc
 
