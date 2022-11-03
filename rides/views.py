@@ -7,12 +7,13 @@ from rest_framework.decorators import action
 
 from rides.filters import RideFilter
 from rides.models import Ride, Participation
-from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
+    RecurrentRideSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, get_user_vehicle, \
-    filter_input_data, get_duration
+    filter_input_data, get_duration, filter_by_decision, filter_rides_by_cities, validate_values
 from users.models import User
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
@@ -21,7 +22,7 @@ from rides.utils.validate_token import validate_token
 class RideViewSet(viewsets.ModelViewSet):
     """
     API View Set that allows Rides to be viewed, created, updated or deleted.
-    This viewset automatically provides list and detail actions.
+    This View Set automatically provides list and detail actions.
     """
 
     serializer_classes = {
@@ -31,6 +32,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'create': RideSerializer,
         'my_requests': ParticipationSerializer,
         'pending_requests': ParticipationSerializer,
+        'create_recurrent': RecurrentRideSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -103,21 +105,14 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return self._get_paginated_queryset(filtered_queryset)
 
-    def _validate_values(self, vehicle, duration, serializer, user) -> (bool, str):
-        if vehicle is None and user.private:
-            return False, 'Vehicle parameter is invalid'
-        if duration is None:
-            return False, 'Duration parameter is invalid'
-        if not serializer.is_valid():
-            return False, serializer.errors
-        return True, 'OK'
-
-    def _create_new_ride(self, request, user):
+    def _create_new_ride(self, request, user, ride_type: str = 'single'):
         data = request.data
-        cleared_data = filter_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                              'start_date', 'price', 'seats', 'vehicle',
-                                                              'duration', 'description', 'coordinates',
-                                                              'automatic_confirm'])
+        expected_keys = ['city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats', 'vehicle',
+                         'duration', 'description', 'coordinates', 'automatic_confirm']
+        if ride_type in 'recurrent':
+            expected_keys.extend(['frequency_type', 'frequence', 'occurrences', 'end_date'])
+
+        cleared_data = filter_input_data(data, expected_keys=expected_keys)
 
         vehicle = get_user_vehicle(data=cleared_data, user=user)
         duration = get_duration(cleared_data)
@@ -128,7 +123,7 @@ class RideViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer_class()(data=cleared_data,
                                                  context={'driver': user, 'vehicle': vehicle, 'duration': duration})
 
-        is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
+        is_valid, message = validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
         if is_valid:
             serializer.save()
             return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
@@ -137,24 +132,27 @@ class RideViewSet(viewsets.ModelViewSet):
 
     @validate_token
     def create(self, request, *args, **kwargs):
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         response = self._create_new_ride(request=request, user=user)
         return response
 
+    @validate_token
+    @action(detail=False, methods=['post'])
+    def create_recurrent(self, request, *args, **kwargs):
+        user = kwargs['user']
+
+        response = self._create_new_ride(request=request, user=user, ride_type='recurrent')
+        return response
+
     def _verify_available_seats(self, data):
         instance = self.get_object()
+
         if data['seats'] <= instance.seats - instance.available_seats:
             return True
         return False
 
-    def _update_serializer(self, data, context) -> JsonResponse:
+    def _update_using_serializer(self, data, context) -> JsonResponse:
         instance = self.get_object()
         serializer = self.get_serializer(instance=instance, data=data, partial=True)
         if serializer.is_valid():
@@ -178,7 +176,7 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Invalid seats parameter",
                                 safe=False)
 
-        return self._update_serializer(data=cleared_data, context=context)
+        return self._update_using_serializer(data=cleared_data, context=context)
 
     def _update_whole_ride(self, update_data, user) -> JsonResponse:
         cleared_data = filter_input_data(update_data,
@@ -199,7 +197,7 @@ class RideViewSet(viewsets.ModelViewSet):
         if user.private:
             cleared_data['automatic_confirm'] = False
 
-        return self._update_serializer(data=cleared_data, context=context)
+        return self._update_using_serializer(data=cleared_data, context=context)
 
     def _is_user_a_driver(self, user) -> bool:
         return self.get_object().driver == user
@@ -229,25 +227,13 @@ class RideViewSet(viewsets.ModelViewSet):
         :param kwargs:
         :return:
         """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         return self._update_ride(request=request, user=user)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         instance = self.get_object()
         if instance.driver == user:
@@ -258,23 +244,6 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete ride",
                                 safe=False)
 
-    def _filter_ride_cities(self, request, queryset):
-        try:
-            city_from_dict = get_city_info(request.GET, 'from')
-            queryset = queryset.filter(city_from__name=city_from_dict['name'], city_from__state=city_from_dict['state'],
-                                       city_from__county=city_from_dict['county'])
-        except KeyError:
-            pass
-
-        try:
-            city_to_dict = get_city_info(request.GET, 'to')
-            queryset = queryset.filter(city_to__name=city_to_dict['name'], city_to__state=city_to_dict['state'],
-                                       city_to__county=city_to_dict['county'])
-        except KeyError:
-            pass
-
-        return queryset
-
     @validate_token
     @action(detail=False, methods=['get'])
     def user_rides(self, request, *args, **kwargs):
@@ -283,13 +252,7 @@ class RideViewSet(viewsets.ModelViewSet):
         :param request:
         :return: List of user's rides.
         """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         queryset = self.get_queryset()
         try:
@@ -304,8 +267,7 @@ class RideViewSet(viewsets.ModelViewSet):
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter {e}", safe=False)
 
-        rides = self._filter_ride_cities(request, rides)
-
+        rides = filter_rides_by_cities(request, rides)
         filtered_rides = self.filter_queryset(rides)
         return self._get_paginated_queryset(filtered_rides)
 
@@ -318,13 +280,7 @@ class RideViewSet(viewsets.ModelViewSet):
         :param pk:
         :return:
         """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         parameters = request.data
         try:
@@ -352,13 +308,7 @@ class RideViewSet(viewsets.ModelViewSet):
         :param request_id:
         :return:
         """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         try:
             participation = Participation.objects.get(id=request_id)
@@ -400,13 +350,7 @@ class RideViewSet(viewsets.ModelViewSet):
         :param request_id:
         :return:
         """
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         try:
             participation = Participation.objects.get(id=request_id)
@@ -431,13 +375,7 @@ class RideViewSet(viewsets.ModelViewSet):
     @validate_token
     @action(detail=True, methods=['get'])
     def check_edition_permissions(self, request, pk=None, *args, **kwargs):
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         instance = self.get_object()
         if instance.driver == user:
@@ -450,48 +388,27 @@ class RideViewSet(viewsets.ModelViewSet):
     @validate_token
     @action(detail=False, methods=['get'])
     def my_requests(self, request, *args, **kwargs):
-        token = kwargs['decoded_token']
-        user_email = token['email']
-
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         rides = self.get_queryset().filter(passengers=user)
-        rides = self._filter_ride_cities(request, queryset=rides)
+        rides = filter_rides_by_cities(request, queryset=rides)
 
         filtered_rides = self.filter_queryset(rides)
 
         rides_ids = [ride.ride_id for ride in filtered_rides]
 
-        decision = ''
-        try:
-            decision = request.GET['decision']
-        except KeyError:
-            pass
-        if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED,
-                        Participation.Decision.CANCELLED]:
-            requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
-        else:
-            requests = Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
+        decision = request.GET.get('decision', '')
+        requests = filter_by_decision(decision, rides_ids, user)
 
         return self._get_paginated_queryset(requests)
 
     @validate_token
     @action(detail=False, methods=['get'])
     def pending_requests(self, request, *args, **kwargs):
-        token = kwargs['decoded_token']
-        user_email = token['email']
-        print(user_email)
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+        user = kwargs['user']
 
         rides = self.get_queryset().filter(driver=user)
-        print(len(rides))
-        rides = self._filter_ride_cities(request, queryset=rides)
+        rides = filter_rides_by_cities(request, queryset=rides)
 
         filtered_rides = self.filter_queryset(rides)
 
