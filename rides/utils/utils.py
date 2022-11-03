@@ -36,9 +36,8 @@ def get_duration(data: dict) -> datetime.timedelta or None:
         duration_data = data.pop('duration')
         if validate_duration(duration_data):
             duration = convert_duration(duration_data)
+        return duration
     except KeyError:
-        pass
-    finally:
         return duration
 
 
@@ -100,16 +99,37 @@ def get_user_vehicle(data, user) -> Vehicle or None:
         vehicle_id = data.pop('vehicle')
         if user.private:
             vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-    except KeyError:
-        pass
-    except Vehicle.DoesNotExist:
-        pass
-    finally:
+        return vehicle
+    except KeyError or Vehicle.DoesNotExist:
         return vehicle
 
 
 def filter_input_data(data: dict, expected_keys: list) -> dict:
     return {key: value for key, value in data.items() if key in expected_keys}
+
+
+def filter_by_decision(decision, rides_ids, user):
+    if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED, Participation.Decision.CANCELLED]:
+        return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
+    return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
+
+
+def filter_rides_by_cities(request, queryset):
+    try:
+        city_from_dict = get_city_info(request.GET, 'from')
+        queryset = queryset.filter(city_from__name=city_from_dict['name'], city_from__state=city_from_dict['state'],
+                                   city_from__county=city_from_dict['county'])
+    except KeyError:
+        pass
+
+    try:
+        city_to_dict = get_city_info(request.GET, 'to')
+        queryset = queryset.filter(city_to__name=city_to_dict['name'], city_to__state=city_to_dict['state'],
+                                   city_to__county=city_to_dict['county'])
+    except KeyError:
+        pass
+
+    return queryset
 
 
 def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
@@ -133,3 +153,13 @@ def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
         return False, "Ride already started or is finished"
 
     return True, "OK"
+
+
+def validate_values(vehicle, duration, serializer, user) -> (bool, str):
+    if vehicle is None and user.private:
+        return False, 'Vehicle parameter is invalid'
+    if duration is None:
+        return False, 'Duration parameter is invalid'
+    if not serializer.is_valid():
+        return False, serializer.errors
+    return True, 'OK'
