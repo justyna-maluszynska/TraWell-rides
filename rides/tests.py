@@ -33,3 +33,16 @@ class RideModelTests(TestCase):
         participation2.save()
         ride.refresh_from_db()
         self.assertEqual(ride.available_seats, 5)
+
+    def test_can_driver_edit(self):
+        ride_factory = RideFactory.create(seats=5)
+        ride = Ride.objects.get(ride_id=ride_factory.ride_id)
+        self.assertEqual(ride.can_driver_edit, True)
+
+        for decision in [Participation.Decision.ACCEPTED, Participation.Decision.PENDING]:
+            participation = ParticipationFactory.create(ride=ride_factory, decision=decision, reserved_seats=1)
+            self.assertEqual(ride.can_driver_edit, False)
+
+            participation.decision = Participation.Decision.CANCELLED
+            participation.save()
+            self.assertEqual(ride.can_driver_edit, True)
