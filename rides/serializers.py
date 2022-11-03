@@ -3,7 +3,7 @@ import datetime
 from rest_framework import serializers
 
 from cities.models import City
-from rides.models import Ride, Participation, Coordinate
+from rides.models import Ride, Participation, Coordinate, RecurrentRide
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -166,10 +166,40 @@ class RideSerializer(serializers.ModelSerializer):
     def get_duration(self, obj):
         return get_duration(obj)
 
-    # def validate_start_date(self, value):
-    #     if value < datetime.datetime.now():
-    #         raise serializers.ValidationError("Start date cannot be in the past")
-    #     return value
+
+class RecurrentRideSerializer(serializers.ModelSerializer):
+    city_from = CityNestedSerializer(many=False)
+    city_to = CityNestedSerializer(many=False)
+    driver = UserNestedSerializer(many=False, required=False)
+    vehicle = VehicleNestedSerializer(many=False, required=False)
+    duration = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecurrentRide
+        fields = (
+            'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'end_date', 'frequency_type',
+            'frequence', 'occurrences', 'price', 'seats', 'automatic_confirm', 'description', 'driver', 'vehicle',
+            'duration')
+        depth = 1
+
+    def create(self, validated_data, **kwargs):
+        driver = self.context['driver']
+        vehicle = self.context['vehicle']
+        duration = self.context['duration']
+
+        city_from_data = validated_data.pop('city_from')
+        city_from, _ = City.objects.get_or_create(**city_from_data)
+        city_to_data = validated_data.pop('city_to')
+        city_to, _ = City.objects.get_or_create(**city_to_data)
+
+        recurrent_ride = RecurrentRide(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to,
+                                       duration=duration, **validated_data)
+        recurrent_ride.save()
+
+        return recurrent_ride
+
+    def get_duration(self, obj):
+        return get_duration(obj)
 
 
 def get_duration(obj: Ride):

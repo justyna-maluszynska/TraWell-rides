@@ -7,7 +7,8 @@ from rest_framework.decorators import action
 
 from rides.filters import RideFilter
 from rides.models import Ride, Participation
-from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
+    RecurrentRideSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -31,6 +32,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'create': RideSerializer,
         'my_requests': ParticipationSerializer,
         'pending_requests': ParticipationSerializer,
+        'create_recurrent': RecurrentRideSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -112,12 +114,14 @@ class RideViewSet(viewsets.ModelViewSet):
             return False, serializer.errors
         return True, 'OK'
 
-    def _create_new_ride(self, request, user):
+    def _create_new_ride(self, request, user, ride_type: str = 'single'):
         data = request.data
-        cleared_data = filter_input_data(data, expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                              'start_date', 'price', 'seats', 'vehicle',
-                                                              'duration', 'description', 'coordinates',
-                                                              'automatic_confirm'])
+        expected_keys = ['city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats', 'vehicle',
+                         'duration', 'description', 'coordinates', 'automatic_confirm']
+        if ride_type in 'recurrent':
+            expected_keys.extend(['frequency_type', 'frequence', 'occurrences', 'end_date'])
+
+        cleared_data = filter_input_data(data, expected_keys=expected_keys)
 
         vehicle = get_user_vehicle(data=cleared_data, user=user)
         duration = get_duration(cleared_data)
@@ -146,6 +150,20 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
 
         response = self._create_new_ride(request=request, user=user)
+        return response
+
+    @validate_token
+    @action(detail=False, methods=['post'])
+    def create_recurrent(self, request, *args, **kwargs):
+        token = kwargs['decoded_token']
+        user_email = token['email']
+
+        try:
+            user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
+
+        response = self._create_new_ride(request=request, user=user, ride_type='recurrent')
         return response
 
     def _verify_available_seats(self, data):
