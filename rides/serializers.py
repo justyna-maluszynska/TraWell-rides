@@ -1,5 +1,3 @@
-import datetime
-
 from rest_framework import serializers
 
 from cities.models import City
@@ -61,11 +59,6 @@ class RidePersonal(serializers.ModelSerializer):
     def get_duration(self, obj):
         return get_duration(obj)
 
-    def validate_start_date(self, value):
-        if value < datetime.datetime.now():
-            raise serializers.ValidationError("Start date cannot be in the past")
-        return value
-
 
 class RideListSerializer(serializers.ModelSerializer):
     city_from = CityNestedSerializer(many=False)
@@ -82,11 +75,6 @@ class RideListSerializer(serializers.ModelSerializer):
 
     def get_duration(self, obj):
         return get_duration(obj)
-
-    def validate_start_date(self, value):
-        if value < datetime.datetime.now():
-            raise serializers.ValidationError("Start date cannot be in the past")
-        return value
 
 
 class ParticipationSerializer(serializers.ModelSerializer):
