@@ -76,7 +76,7 @@ class Ride(models.Model):
     available_seats = models.IntegerField(null=True, blank=True)
     is_cancelled = models.BooleanField(default=False, blank=False)
     recurrent_ride = models.ForeignKey(RecurrentRide, related_name='single_rides', on_delete=models.CASCADE,
-                                       blank=False, null=True)
+                                       blank=True, null=True, default=None)
 
     @property
     def get_available_seats(self) -> int:
@@ -134,7 +134,7 @@ m2m_changed.connect(participation_changed, sender=Ride.passengers.through)
 
 class Coordinate(models.Model):
     coordinate_id = models.AutoField(primary_key=True)
-    ride = models.ForeignKey(Ride, related_name='coordinates', on_delete=models.CASCADE, null=False)
+    ride = models.ForeignKey(Ride, related_name='coordinates', on_delete=models.CASCADE, null=True)
     lat = models.DecimalField(null=False, max_digits=15, decimal_places=6)
     lng = models.DecimalField(null=False, max_digits=15, decimal_places=6)
     sequence_no = models.IntegerField(null=False)

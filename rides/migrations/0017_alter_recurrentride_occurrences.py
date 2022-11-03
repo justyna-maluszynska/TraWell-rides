@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('rides', '0016_alter_recurrentride_frequency_type'),
     ]
@@ -14,6 +13,21 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='recurrentride',
             name='occurrences',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(choices=[('MON', 'Monday'), ('TUE', 'Tuesday'), ('WED', 'Wednesday'), ('THU', 'Thursday'), ('FRI', 'Friday'), ('SAT', 'Saturday'), ('SUN', 'Sunday')], max_length=10), blank=True, size=None),
+            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(
+                choices=[('MON', 'Monday'), ('TUE', 'Tuesday'), ('WED', 'Wednesday'), ('THU', 'Thursday'),
+                         ('FRI', 'Friday'), ('SAT', 'Saturday'), ('SUN', 'Sunday')], max_length=10), blank=True,
+                null=True, size=None),
+        ),
+        migrations.AlterField(
+            model_name='ride',
+            name='recurrent_ride',
+            field=models.ForeignKey(blank=True, default=None, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='single_rides', to='rides.recurrentride'),
+        ),
+        migrations.AlterField(
+            model_name='coordinate',
+            name='ride',
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='coordinates',
+                                    to='rides.ride'),
         ),
     ]

@@ -149,8 +149,8 @@ class RideViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
 
         if data['seats'] <= instance.seats - instance.available_seats:
-            return False
-        return True
+            return True
+        return False
 
     def _update_using_serializer(self, data, context) -> JsonResponse:
         instance = self.get_object()
@@ -173,7 +173,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         cleared_data = filter_input_data(update_data, expected_keys=expected_keys)
         if self._verify_available_seats(data=cleared_data):
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter",
+            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Invalid seats parameter",
                                 safe=False)
 
         return self._update_using_serializer(data=cleared_data, context=context)
