@@ -318,23 +318,18 @@ class RideViewSet(viewsets.ModelViewSet):
         if participation.ride.driver == user:
             data = request.data
             try:
-                requesting_user = User.objects.get(user_id=data['driver_id'])
-                if participation.ride.driver == requesting_user and participation.decision == participation.Decision.PENDING:
+                if participation.decision == participation.Decision.PENDING:
                     decision = data['decision']
                     if decision in [choice[0] for choice in Participation.Decision.choices]:
                         participation.decision = decision
                         participation.save()
                         return JsonResponse(status=status.HTTP_200_OK,
-                                            data=f'Request successfully changed to {decision}',
-                                            safe=False)
+                                            data=f'Request successfully changed to {decision}', safe=False)
                     else:
                         return JsonResponse(status=status.HTTP_400_BAD_REQUEST,
-                                            data=f"Invalid decision parameter value",
-                                            safe=False)
+                                            data=f"Invalid decision parameter value", safe=False)
                 return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
                                     data=f"Request do not have {participation.Decision.PENDING} status", safe=False)
-            except User.DoesNotExist:
-                return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="User not found", safe=False)
             except KeyError as e:
                 return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
         else:
@@ -358,19 +353,16 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_404_NOT_FOUND, data="Request not found", safe=False)
 
         if participation.user == user:
-            try:
-                if participation.decision != Participation.Decision.CANCELLED:
-                    participation.decision = Participation.Decision.CANCELLED
-                    participation.save()
-                    return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
-                else:
-                    return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
-                                        safe=False)
-            except KeyError as e:
-                return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
-        else:
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
-                                data="User not allowed to delete request", safe=False)
+            if participation.decision != Participation.Decision.CANCELLED:
+                participation.decision = Participation.Decision.CANCELLED
+                participation.save()
+                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
+
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
+                                safe=False)
+
+        return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete request",
+                            safe=False)
 
     @validate_token
     @action(detail=True, methods=['get'])
