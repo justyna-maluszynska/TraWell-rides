@@ -34,7 +34,8 @@ class ParticipationFactory(factory.django.DjangoModelFactory):
 
     ride = factory.SubFactory(RideFactory)
     user = factory.SubFactory(UserFactory)
-    decision = factory.Iterator(models.Participation.Decision.choices)
+    decision = factory.Iterator([models.Participation.Decision.ACCEPTED[0], models.Participation.Decision.DECLINED[0],
+                                 models.Participation.Decision.PENDING[0], models.Participation.Decision.CANCELLED[0]])
     reserved_seats = factory.Iterator([1, 2, 3])
 
 
