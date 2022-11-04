@@ -5,17 +5,47 @@ from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 
-from rides.filters import RideFilter
-from rides.models import Ride, Participation
+from rides.filters import RideFilter, RecurrentRideFilter
+from rides.models import Ride, Participation, RecurrentRide
 from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
     RecurrentRideSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
+from rides.services import create_new_ride
 from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, get_user_vehicle, \
-    filter_input_data, get_duration, filter_by_decision, filter_rides_by_cities, validate_values
+    filter_input_data, get_duration, filter_by_decision, filter_rides_by_cities
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
+
+
+class RecurrentRideViewSet(viewsets.ModelViewSet):
+    queryset = RecurrentRide.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
+    filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
+    filterset_class = RecurrentRideFilter
+    pagination_class = CustomPagination
+    ordering_fields = ['price', 'start_date', 'duration']
+
+    def get_serializer_class(self):
+        return RecurrentRideSerializer
+
+    def _create_new_recurrent_ride(self, request, user):
+        data = request.data
+        expected_keys = ['city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats', 'vehicle',
+                         'duration', 'description', 'coordinates', 'automatic_confirm', 'frequency_type', 'frequence',
+                         'occurrences', 'end_date']
+
+        status_code, message = create_new_ride(data=data, keys=expected_keys, user=user,
+                                               serializer=self.get_serializer_class())
+
+        return JsonResponse(status=status_code, data=message, safe=False)
+
+    @validate_token
+    def create(self, request, *args, **kwargs):
+        user = kwargs['user']
+
+        response = self._create_new_recurrent_ride(request=request, user=user)
+        return response
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -31,7 +61,6 @@ class RideViewSet(viewsets.ModelViewSet):
         'create': RideSerializer,
         'my_requests': ParticipationSerializer,
         'pending_requests': ParticipationSerializer,
-        'create_recurrent': RecurrentRideSerializer,
     }
     queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -104,44 +133,21 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return self._get_paginated_queryset(filtered_queryset)
 
-    def _create_new_ride(self, request, user, ride_type: str = 'single'):
+    def _create_new_ride(self, request, user):
         data = request.data
         expected_keys = ['city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats', 'vehicle',
                          'duration', 'description', 'coordinates', 'automatic_confirm']
-        if ride_type in 'recurrent':
-            expected_keys.extend(['frequency_type', 'frequence', 'occurrences', 'end_date'])
 
-        cleared_data = filter_input_data(data, expected_keys=expected_keys)
+        status_code, message = create_new_ride(data=data, keys=expected_keys, user=user,
+                                               serializer=self.get_serializer_class())
 
-        vehicle = get_user_vehicle(data=cleared_data, user=user)
-        duration = get_duration(cleared_data)
-
-        if user.private:
-            cleared_data['automatic_confirm'] = False
-
-        serializer = self.get_serializer_class()(data=cleared_data,
-                                                 context={'driver': user, 'vehicle': vehicle, 'duration': duration})
-
-        is_valid, message = validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
-        if is_valid:
-            serializer.save()
-            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-        else:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
+        return JsonResponse(status=status_code, data=message, safe=False)
 
     @validate_token
     def create(self, request, *args, **kwargs):
         user = kwargs['user']
 
         response = self._create_new_ride(request=request, user=user)
-        return response
-
-    @validate_token
-    @action(detail=False, methods=['post'])
-    def create_recurrent(self, request, *args, **kwargs):
-        user = kwargs['user']
-
-        response = self._create_new_ride(request=request, user=user, ride_type='recurrent')
         return response
 
     def _verify_available_seats(self, data):
@@ -231,6 +237,26 @@ class RideViewSet(viewsets.ModelViewSet):
         return self._update_ride(request=request, user=user)
 
     @validate_token
+    @action(detail=True, methods=['patch'], url_path=r'update_recurrent/(?P<ride_id>[^/.]+)', )
+    def update_recurrent(self, request, ride_id, *args, **kwargs):
+        """
+        Endpoint for updating Recurrent Ride object.
+        :param ride_id:
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        user = kwargs['user']
+
+        if self._is_user_a_driver(user):
+            update_data = request.data
+            return self._update_partial_ride(update_data, user)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
+                                safe=False)
+
+    @validate_token
     def destroy(self, request, *args, **kwargs):
         user = kwargs['user']
 
@@ -269,6 +295,8 @@ class RideViewSet(viewsets.ModelViewSet):
         rides = filter_rides_by_cities(request, rides)
         filtered_rides = self.filter_queryset(rides)
         return self._get_paginated_queryset(filtered_rides)
+
+    # REQUESTS ENDPOINTS
 
     @validate_token
     @action(detail=True, methods=['post'])

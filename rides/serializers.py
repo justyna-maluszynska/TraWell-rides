@@ -194,6 +194,23 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
 
         return recurrent_ride
 
+    def update(self, instance, validated_data, **kwargs):
+        vehicle = self.context.get('vehicle', instance.vehicle)
+        seats = validated_data.get('seats', instance.seats)
+        automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
+        description = validated_data.get('description', instance.description)
+        instance.update(vehicle=vehicle, seats=seats, automatic_confirm=automatic_confirm, description=description)
+
+        single_rides = Ride.objects.filter(recurrent_ride=instance)
+        for ride in single_rides:
+            ride.vehicle = vehicle
+            ride.seats = seats
+            ride.automatic_confirm = automatic_confirm
+            ride.description = description
+            instance.save()
+
+        return instance
+
     def get_duration(self, obj):
         return get_duration(obj)
 
