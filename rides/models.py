@@ -158,7 +158,6 @@ def create_single_rides(recurrent_ride: RecurrentRide) -> None:
     if frequency_type in RecurrentRide.FrequencyType.HOURLY:
         dates = pd.date_range(start=start_date, end=end_date, freq=f'{frequence}H')
     elif frequency_type in RecurrentRide.FrequencyType.DAILY:
-        print('weszlo')
         dates = pd.date_range(start=start_date, end=end_date, freq=f'{frequence}D')
     elif frequency_type in RecurrentRide.FrequencyType.WEEKLY:
         dates = DatetimeIndex()

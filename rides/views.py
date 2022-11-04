@@ -14,7 +14,6 @@ from rest_framework.filters import OrderingFilter
 
 from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, get_user_vehicle, \
     filter_input_data, get_duration, filter_by_decision, filter_rides_by_cities, validate_values
-from users.models import User
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
 
