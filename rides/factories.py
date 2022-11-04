@@ -19,17 +19,30 @@ class RideFactory(factory.django.DjangoModelFactory):
     duration = factory.Faker('time_delta', end_datetime=start_date)
     price = factory.Faker('pydecimal', left_digits=4, right_digits=2, positive=True)
     seats = factory.Faker('random_digit_not_null')
-    recurrent = factory.Faker('pybool')
+    recurrent = False
     automatic_confirm = factory.Faker('pybool')
     description = factory.Faker('text', max_nb_chars=300)
     driver = factory.SubFactory(UserFactory)
     vehicle = factory.SubFactory(VehicleFactory)
+    is_cancelled = False
+    recurrent_ride = None
 
-    @factory.post_generation
-    def passengers(self, create, extracted):
-        if not create:
-            return
 
-        if extracted:
-            for passenger in extracted:
-                self.passengers.add(passenger)
+class ParticipationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.Participation
+
+    ride = factory.SubFactory(RideFactory)
+    user = factory.SubFactory(UserFactory)
+    decision = factory.Iterator([models.Participation.Decision.ACCEPTED[0], models.Participation.Decision.DECLINED[0],
+                                 models.Participation.Decision.PENDING[0], models.Participation.Decision.CANCELLED[0]])
+    reserved_seats = factory.Iterator([1, 2, 3])
+
+
+class RideWithPassengerFactory(RideFactory):
+    participation = factory.RelatedFactory(ParticipationFactory, factory_related_name='ride')
+
+
+class RideWith2PassengersFactory(RideFactory):
+    participation1 = factory.RelatedFactory(ParticipationFactory, factory_related_name='ride')
+    participation2 = factory.RelatedFactory(ParticipationFactory, factory_related_name='ride')

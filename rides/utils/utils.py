@@ -109,7 +109,8 @@ def filter_input_data(data: dict, expected_keys: list) -> dict:
 
 
 def filter_by_decision(decision, rides_ids, user):
-    if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED, Participation.Decision.CANCELLED]:
+    if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED, Participation.Decision.DECLINED]:
+        print(decision)
         return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
     return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
 
@@ -145,7 +146,7 @@ def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
                                                                              Participation.Decision.ACCEPTED]):
         return False, "User is already in ride or waiting for decision"
-    if seats > ride.available_seats < 1:
+    if 1 <= seats >= ride.available_seats:
         return False, "There are not enough seats"
 
     current_date = datetime.datetime.now(datetime.timezone.utc)
