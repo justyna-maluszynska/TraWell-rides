@@ -12,9 +12,9 @@ from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, 
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.services import create_new_ride
-from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, get_user_vehicle, \
-    filter_input_data, get_duration, filter_by_decision, filter_rides_by_cities
+from rides.services import create_new_ride, update_partial_ride, update_whole_ride
+from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, filter_by_decision, \
+    filter_rides_by_cities, is_user_a_driver
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
 
@@ -22,7 +22,9 @@ from rides.utils.validate_token import validate_token
 class RecurrentRideViewSet(viewsets.ModelViewSet):
     serializer_classes = {
         'create': RecurrentRideSerializer,
+        'update': RecurrentRideSerializer,
         'user_rides': RecurrentRidePersonal,
+        'retrieve': RecurrentRideSerializer,
     }
     queryset = RecurrentRide.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -61,6 +63,35 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         response = self._create_new_recurrent_ride(request=request, user=user)
         return response
 
+    def _update_recurrent_ride(self, request, user) -> JsonResponse:
+        if is_user_a_driver(user, self.get_object()):
+            if request.method == 'PATCH':
+                args = {
+                    "instance": self.get_object(),
+                    "serializer": self.get_serializer_class(),
+                    "update_data": request.data,
+                    "user": user
+                }
+                status_code, message = update_partial_ride(**args)
+                return JsonResponse(status=status_code, data=message, safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
+                                safe=False)
+
+    @validate_token
+    def update(self, request, *args, **kwargs):
+        user = kwargs['user']
+
+        return self._update_recurrent_ride(request=request, user=user)
+
+    def _get_user_rides(self, request, user):
+        queryset = self.get_queryset()
+        rides = queryset.filter(driver=user)
+
+        rides = filter_rides_by_cities(request, rides)
+        filtered_rides = self.filter_queryset(rides)
+        return self.get_paginated_queryset(filtered_rides)
+
     @validate_token
     @action(detail=False, methods=['get'])
     def user_rides(self, request, *args, **kwargs):
@@ -71,12 +102,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         """
         user = kwargs['user']
 
-        queryset = self.get_queryset()
-        rides = queryset.filter(driver=user)
-
-        rides = filter_rides_by_cities(request, rides)
-        filtered_rides = self.filter_queryset(rides)
-        return self.get_paginated_queryset(filtered_rides)
+        return self._get_user_rides(request, user)
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -181,75 +207,24 @@ class RideViewSet(viewsets.ModelViewSet):
         response = self._create_new_ride(request=request, user=user)
         return response
 
-    def _verify_available_seats(self, data):
-        instance = self.get_object()
-
-        if data['seats'] <= instance.seats - instance.available_seats:
-            return True
-        return False
-
-    def _update_using_serializer(self, data, context) -> JsonResponse:
-        instance = self.get_object()
-        serializer = self.get_serializer(instance=instance, data=data, partial=True)
-        if serializer.is_valid():
-            serializer.update(instance=instance, validated_data=data, partial=True, context=context)
-            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-
-        return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors, safe=False)
-
-    def _update_partial_ride(self, update_data, user):
-        context = {}
-
-        if user.private:
-            expected_keys = ['seats', 'vehicle', 'description']
-            vehicle = get_user_vehicle(update_data, user)
-            context['vehicle'] = vehicle
-        else:
-            expected_keys = ['seats', 'automatic_confirm', 'description']
-
-        cleared_data = filter_input_data(update_data, expected_keys=expected_keys)
-        if self._verify_available_seats(data=cleared_data):
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data="Invalid seats parameter",
-                                safe=False)
-
-        return self._update_using_serializer(data=cleared_data, context=context)
-
-    def _update_whole_ride(self, update_data, user) -> JsonResponse:
-        cleared_data = filter_input_data(update_data,
-                                         expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                        'start_date', 'price', 'seats', 'vehicle',
-                                                        'duration', 'description', 'coordinates',
-                                                        'automatic_confirm'])
-
-        context = {}
-        vehicle = get_user_vehicle(data=cleared_data, user=user)
-        if user.private:
-            context['vehicle'] = vehicle
-
-        duration = get_duration(cleared_data)
-        if duration is not None:
-            context['duration'] = duration
-
-        if user.private:
-            cleared_data['automatic_confirm'] = False
-
-        return self._update_using_serializer(data=cleared_data, context=context)
-
-    def _is_user_a_driver(self, user) -> bool:
-        return self.get_object().driver == user
-
     def _has_ride_passengers(self) -> bool:
         return self.get_object().passengers.filter(
             passenger__decision__in=[Participation.Decision.ACCEPTED, Participation.Decision.PENDING]).exists()
 
     def _update_ride(self, request, user) -> JsonResponse:
-        if self._is_user_a_driver(user):
+        if is_user_a_driver(user, self.get_object()):
             if request.method == 'PATCH':
-                update_data = request.data
+                args = {
+                    "instance": self.get_object(),
+                    "serializer": self.get_serializer_class(),
+                    "update_data": request.data,
+                    "user": user
+                }
                 if self._has_ride_passengers():
-                    return self._update_partial_ride(update_data, user)
+                    status_code, message = update_partial_ride(**args)
                 else:
-                    return self._update_whole_ride(update_data, user)
+                    status_code, message = update_whole_ride(**args)
+                return JsonResponse(status=status_code, data=message, safe=False)
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
                                 safe=False)
@@ -280,7 +255,7 @@ class RideViewSet(viewsets.ModelViewSet):
         """
         user = kwargs['user']
 
-        if self._is_user_a_driver(user):
+        if is_user_a_driver(user, ride=self.get_object()):
             update_data = request.data
             return self._update_partial_ride(update_data, user)
         else:
@@ -300,16 +275,7 @@ class RideViewSet(viewsets.ModelViewSet):
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete ride",
                                 safe=False)
 
-    @validate_token
-    @action(detail=False, methods=['get'])
-    def user_rides(self, request, *args, **kwargs):
-        """
-        Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
-        :param request:
-        :return: List of user's rides.
-        """
-        user = kwargs['user']
-
+    def _get_user_rides(self, request, user):
         try:
             user_ride_type = request.GET['user_type']
             queryset = self.get_queryset()
@@ -326,6 +292,18 @@ class RideViewSet(viewsets.ModelViewSet):
         rides = filter_rides_by_cities(request, rides)
         filtered_rides = self.filter_queryset(rides)
         return self._get_paginated_queryset(filtered_rides)
+
+    @validate_token
+    @action(detail=False, methods=['get'])
+    def user_rides(self, request, *args, **kwargs):
+        """
+        Endpoint for getting user rides. Can be filtered with price (from - to), from place, to place
+        :param request:
+        :return: List of user's rides.
+        """
+        user = kwargs['user']
+
+        return self._get_user_rides(request, user)
 
     # REQUESTS ENDPOINTS
 

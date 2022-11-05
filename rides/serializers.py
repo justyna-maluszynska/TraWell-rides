@@ -145,16 +145,16 @@ class RideSerializer(serializers.ModelSerializer):
             coordinate.ride = instance
             coordinate.save()
 
-        instance.duration = self.context.get('duration', instance.duration)
-        instance.vehicle = self.context.get('vehicle', instance.vehicle)
-        instance.area_from = validated_data.get('area_from', instance.area_from)
-        instance.area_to = validated_data.get('area_to', instance.area_to)
-        instance.start_date = validated_data.get('start_date', instance.start_date)
-        instance.price = validated_data.get('price', instance.price)
-        instance.seats = validated_data.get('seats', instance.seats)
-        instance.automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
-        instance.description = validated_data.get('description', instance.description)
-        instance.save()
+        update_data = {"duration": self.context.get('duration', instance.duration),
+                       "vehicle": self.context.get('vehicle', instance.vehicle),
+                       "area_from": validated_data.get('area_from', instance.area_from),
+                       "area_to": validated_data.get('area_to', instance.area_to),
+                       "start_date": validated_data.get('start_date', instance.start_date),
+                       "price": validated_data.get('price', instance.price),
+                       "seats": validated_data.get('seats', instance.seats),
+                       "automatic_confirm": validated_data.get('automatic_confirm', instance.automatic_confirm),
+                       "description": validated_data.get('description', instance.description)}
+        update_ride(instance, update_data)
         return instance
 
     def create(self, validated_data, **kwargs):
@@ -214,18 +214,15 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data, **kwargs):
         vehicle = self.context.get('vehicle', instance.vehicle)
-        seats = validated_data.get('seats', instance.seats)
         automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
         description = validated_data.get('description', instance.description)
-        instance.update(vehicle=vehicle, seats=seats, automatic_confirm=automatic_confirm, description=description)
+
+        update_data = {'vehicle': vehicle, 'automatic_confirm': automatic_confirm, 'description': description}
+        update_ride(instance, update_data)
 
         single_rides = Ride.objects.filter(recurrent_ride=instance)
         for ride in single_rides:
-            ride.vehicle = vehicle
-            ride.seats = seats
-            ride.automatic_confirm = automatic_confirm
-            ride.description = description
-            instance.save()
+            update_ride(ride, update_data)
 
         return instance
 
@@ -237,3 +234,9 @@ def get_duration(obj: Ride):
     total_minutes = int(obj.duration.total_seconds() // 60)
     hours = total_minutes // 60
     return {'hours': hours, 'minutes': total_minutes - hours * 60}
+
+
+def update_ride(ride: Ride or RecurrentRide, update_data: dict):
+    for key, value in update_data.items():
+        setattr(ride, key, value)
+    ride.save()
