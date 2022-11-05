@@ -2,7 +2,8 @@ import datetime
 
 from django_filters import rest_framework as filters, NumberFilter, DateTimeFilter, CharFilter
 
-from rides.models import Ride, RecurrentRide
+from rides.models import Ride
+from utils.utils import daterange_filter
 
 
 class RideFilter(filters.FilterSet):
@@ -28,22 +29,3 @@ class RideFilter(filters.FilterSet):
         if value == 'company':
             return queryset.filter(**{'driver__private': False})
         return queryset
-
-
-class RecurrentRideFilter(filters.FilterSet):
-    start_date = DateTimeFilter(field_name='start_date', method='daterange_filter')
-
-    class Meta:
-        model = RecurrentRide
-        fields = ('start_date',)
-
-    def daterange_filter(self, queryset, name: str, value: datetime):
-        return daterange_filter(queryset, name, value)
-
-
-def daterange_filter(queryset, name: str, value: datetime):
-    first_parameter = '__'.join([name, 'gte'])
-    second_parameter = '__'.join([name, 'lte'])
-    return queryset.filter(**{first_parameter: value,
-                              second_parameter: datetime.datetime.combine(value.date() + datetime.timedelta(1),
-                                                                          datetime.time.max)})

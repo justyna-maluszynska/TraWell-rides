@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'cities',
     'vehicles',
     'rides',
+    'recurrent_rides',
+    'ride_requests'
 ]
 
 MIDDLEWARE = [
