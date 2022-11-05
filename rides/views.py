@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rides.filters import RideFilter, RecurrentRideFilter
 from rides.models import Ride, Participation, RecurrentRide
 from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
-    RecurrentRideSerializer
+    RecurrentRideSerializer, RecurrentRidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -20,6 +20,10 @@ from rides.utils.validate_token import validate_token
 
 
 class RecurrentRideViewSet(viewsets.ModelViewSet):
+    serializer_classes = {
+        'create': RecurrentRideSerializer,
+        'user_rides': RecurrentRidePersonal,
+    }
     queryset = RecurrentRide.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RecurrentRideFilter
@@ -27,7 +31,17 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
     ordering_fields = ['price', 'start_date', 'duration']
 
     def get_serializer_class(self):
-        return RecurrentRideSerializer
+        return self.serializer_classes.get(self.action) or RecurrentRideSerializer
+
+    def get_paginated_queryset(self, queryset: QuerySet) -> JsonResponse:
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(page, many=True)
+        return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
 
     def _create_new_recurrent_ride(self, request, user):
         data = request.data
@@ -46,6 +60,23 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
 
         response = self._create_new_recurrent_ride(request=request, user=user)
         return response
+
+    @validate_token
+    @action(detail=False, methods=['get'])
+    def user_rides(self, request, *args, **kwargs):
+        """
+        Endpoint for getting user recurrent rides. Can be filtered with price (from - to), from place, to place
+        :param request:
+        :return: List of user's recurrent rides.
+        """
+        user = kwargs['user']
+
+        queryset = self.get_queryset()
+        rides = queryset.filter(driver=user)
+
+        rides = filter_rides_by_cities(request, rides)
+        filtered_rides = self.filter_queryset(rides)
+        return self.get_paginated_queryset(filtered_rides)
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -279,9 +310,9 @@ class RideViewSet(viewsets.ModelViewSet):
         """
         user = kwargs['user']
 
-        queryset = self.get_queryset()
         try:
             user_ride_type = request.GET['user_type']
+            queryset = self.get_queryset()
 
             if user_ride_type == 'driver':
                 rides = queryset.filter(driver=user)
