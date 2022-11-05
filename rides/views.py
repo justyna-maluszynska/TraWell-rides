@@ -1,5 +1,3 @@
-import datetime
-
 from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
@@ -12,7 +10,8 @@ from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, 
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.services import create_new_ride, update_partial_ride, update_whole_ride
+from rides.services import create_new_ride, update_partial_ride, update_whole_ride, cancel_ride
+from rides.utils.constants import ACTUAL_RIDES_ARGS
 from rides.utils.utils import find_city_object, find_near_cities, get_city_info, verify_request, filter_by_decision, \
     filter_rides_by_cities, is_user_a_driver
 from rides.utils.CustomPagination import CustomPagination
@@ -26,7 +25,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         'user_rides': RecurrentRidePersonal,
         'retrieve': RecurrentRideSerializer,
     }
-    queryset = RecurrentRide.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
+    queryset = RecurrentRide.objects.filter(**ACTUAL_RIDES_ARGS)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RecurrentRideFilter
     pagination_class = CustomPagination
@@ -84,6 +83,21 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
 
         return self._update_recurrent_ride(request=request, user=user)
 
+    @validate_token
+    def destroy(self, request, *args, **kwargs):
+        user = kwargs['user']
+
+        instance = self.get_object()
+        if instance.driver == user:
+            cancel_ride(instance)
+            singular_rides = Ride.objects.filter(recurrent_ride=instance, **ACTUAL_RIDES_ARGS)
+            for ride in singular_rides:
+                cancel_ride(ride)
+            return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete ride",
+                                safe=False)
+
     def _get_user_rides(self, request, user):
         queryset = self.get_queryset()
         rides = queryset.filter(driver=user)
@@ -119,7 +133,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'my_requests': ParticipationSerializer,
         'pending_requests': ParticipationSerializer,
     }
-    queryset = Ride.objects.filter(is_cancelled=False, start_date__gt=datetime.datetime.today())
+    queryset = Ride.objects.filter(**ACTUAL_RIDES_ARGS)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomPagination
@@ -243,33 +257,12 @@ class RideViewSet(viewsets.ModelViewSet):
         return self._update_ride(request=request, user=user)
 
     @validate_token
-    @action(detail=True, methods=['patch'], url_path=r'update_recurrent/(?P<ride_id>[^/.]+)', )
-    def update_recurrent(self, request, ride_id, *args, **kwargs):
-        """
-        Endpoint for updating Recurrent Ride object.
-        :param ride_id:
-        :param request:
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        user = kwargs['user']
-
-        if is_user_a_driver(user, ride=self.get_object()):
-            update_data = request.data
-            return self._update_partial_ride(update_data, user)
-        else:
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
-                                safe=False)
-
-    @validate_token
     def destroy(self, request, *args, **kwargs):
         user = kwargs['user']
 
         instance = self.get_object()
         if instance.driver == user:
-            instance.is_cancelled = True
-            instance.save()
+            cancel_ride(instance)
             return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete ride",

@@ -80,3 +80,8 @@ def update_whole_ride(instance, serializer, update_data, user):
         cleared_data['automatic_confirm'] = False
 
     return update_using_serializer(instance=instance, serializer=serializer, data=cleared_data, context=context)
+
+
+def cancel_ride(ride: Ride or RecurrentRide):
+    ride.is_cancelled = True
+    ride.save()

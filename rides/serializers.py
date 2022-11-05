@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from cities.models import City
 from rides.models import Ride, Participation, Coordinate, RecurrentRide
+from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -205,7 +206,7 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
         update_data = {'vehicle': vehicle, 'automatic_confirm': automatic_confirm, 'description': description}
         update_ride(instance, update_data)
 
-        single_rides = Ride.objects.filter(recurrent_ride=instance)
+        single_rides = Ride.objects.filter(recurrent_ride=instance, **ACTUAL_RIDES_ARGS)
         for ride in single_rides:
             update_ride(ride, update_data)
 
