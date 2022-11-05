@@ -122,12 +122,12 @@ class RideSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data, **kwargs):
         requested_city_from = validated_data.get('city_from', instance.city_from)
         if type(requested_city_from) is dict:
-            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            city_from, _ = City.objects.get_or_create(**requested_city_from)
             instance.city_from = city_from
 
         requested_city_to = validated_data.get('city_to', instance.city_to)
         if type(requested_city_to) is dict:
-            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            city_to, _ = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
 
         coordinates = validated_data.get('coordinates', instance.coordinates.all())
@@ -158,15 +158,7 @@ class RideSerializer(serializers.ModelSerializer):
         return instance
 
     def create(self, validated_data, **kwargs):
-        driver = self.context['driver']
-        vehicle = self.context['vehicle']
-        duration = self.context['duration']
-
-        city_from_data = validated_data.pop('city_from')
-        city_from, _ = City.objects.get_or_create(**city_from_data)
-        city_to_data = validated_data.pop('city_to')
-        city_to, _ = City.objects.get_or_create(**city_to_data)
-
+        driver, vehicle, duration, city_from, city_to = get_ride_data(validated_data, self.context)
         coordinates = validated_data.pop('coordinates')
 
         ride = Ride(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to, duration=duration,
@@ -197,14 +189,7 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
         depth = 1
 
     def create(self, validated_data, **kwargs):
-        driver = self.context['driver']
-        vehicle = self.context['vehicle']
-        duration = self.context['duration']
-
-        city_from_data = validated_data.pop('city_from')
-        city_from, _ = City.objects.get_or_create(**city_from_data)
-        city_to_data = validated_data.pop('city_to')
-        city_to, _ = City.objects.get_or_create(**city_to_data)
+        driver, vehicle, duration, city_from, city_to = get_ride_data(validated_data, self.context)
 
         recurrent_ride = RecurrentRide(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to,
                                        duration=duration, **validated_data)
@@ -240,3 +225,16 @@ def update_ride(ride: Ride or RecurrentRide, update_data: dict):
     for key, value in update_data.items():
         setattr(ride, key, value)
     ride.save()
+
+
+def get_ride_data(validated_data, context):
+    driver = context['driver']
+    vehicle = context['vehicle']
+    duration = context['duration']
+
+    city_from_data = validated_data.pop('city_from')
+    city_from, _ = City.objects.get_or_create(**city_from_data)
+    city_to_data = validated_data.pop('city_to')
+    city_to, _ = City.objects.get_or_create(**city_to_data)
+
+    return driver, vehicle, duration, city_from, city_to
