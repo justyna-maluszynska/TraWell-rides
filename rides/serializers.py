@@ -60,6 +60,24 @@ class RidePersonal(serializers.ModelSerializer):
         return get_duration(obj)
 
 
+class RecurrentRidePersonal(serializers.ModelSerializer):
+    city_from = CityNestedSerializer(many=False)
+    city_to = CityNestedSerializer(many=False)
+    duration = serializers.SerializerMethodField()
+    driver = UserNestedSerializer(many=False)
+    can_driver_edit = True
+
+    class Meta:
+        model = Ride
+        fields = (
+            'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'duration', 'can_driver_edit',
+            'driver')
+        extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
+
+    def get_duration(self, obj):
+        return get_duration(obj)
+
+
 class RideListSerializer(serializers.ModelSerializer):
     city_from = CityNestedSerializer(many=False)
     city_to = CityNestedSerializer(many=False)
@@ -104,12 +122,12 @@ class RideSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data, **kwargs):
         requested_city_from = validated_data.get('city_from', instance.city_from)
         if type(requested_city_from) is dict:
-            city_from, was_created = City.objects.get_or_create(**requested_city_from)
+            city_from, _ = City.objects.get_or_create(**requested_city_from)
             instance.city_from = city_from
 
         requested_city_to = validated_data.get('city_to', instance.city_to)
         if type(requested_city_to) is dict:
-            city_to, was_created = City.objects.get_or_create(**requested_city_to)
+            city_to, _ = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
 
         coordinates = validated_data.get('coordinates', instance.coordinates.all())
@@ -127,28 +145,20 @@ class RideSerializer(serializers.ModelSerializer):
             coordinate.ride = instance
             coordinate.save()
 
-        instance.duration = self.context.get('duration', instance.duration)
-        instance.vehicle = self.context.get('vehicle', instance.vehicle)
-        instance.area_from = validated_data.get('area_from', instance.area_from)
-        instance.area_to = validated_data.get('area_to', instance.area_to)
-        instance.start_date = validated_data.get('start_date', instance.start_date)
-        instance.price = validated_data.get('price', instance.price)
-        instance.seats = validated_data.get('seats', instance.seats)
-        instance.automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
-        instance.description = validated_data.get('description', instance.description)
-        instance.save()
+        update_data = {"duration": self.context.get('duration', instance.duration),
+                       "vehicle": self.context.get('vehicle', instance.vehicle),
+                       "area_from": validated_data.get('area_from', instance.area_from),
+                       "area_to": validated_data.get('area_to', instance.area_to),
+                       "start_date": validated_data.get('start_date', instance.start_date),
+                       "price": validated_data.get('price', instance.price),
+                       "seats": validated_data.get('seats', instance.seats),
+                       "automatic_confirm": validated_data.get('automatic_confirm', instance.automatic_confirm),
+                       "description": validated_data.get('description', instance.description)}
+        update_ride(instance, update_data)
         return instance
 
     def create(self, validated_data, **kwargs):
-        driver = self.context['driver']
-        vehicle = self.context['vehicle']
-        duration = self.context['duration']
-
-        city_from_data = validated_data.pop('city_from')
-        city_from, _ = City.objects.get_or_create(**city_from_data)
-        city_to_data = validated_data.pop('city_to')
-        city_to, _ = City.objects.get_or_create(**city_to_data)
-
+        driver, vehicle, duration, city_from, city_to = get_ride_data(validated_data, self.context)
         coordinates = validated_data.pop('coordinates')
 
         ride = Ride(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to, duration=duration,
@@ -179,20 +189,27 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
         depth = 1
 
     def create(self, validated_data, **kwargs):
-        driver = self.context['driver']
-        vehicle = self.context['vehicle']
-        duration = self.context['duration']
-
-        city_from_data = validated_data.pop('city_from')
-        city_from, _ = City.objects.get_or_create(**city_from_data)
-        city_to_data = validated_data.pop('city_to')
-        city_to, _ = City.objects.get_or_create(**city_to_data)
+        driver, vehicle, duration, city_from, city_to = get_ride_data(validated_data, self.context)
 
         recurrent_ride = RecurrentRide(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to,
                                        duration=duration, **validated_data)
         recurrent_ride.save()
 
         return recurrent_ride
+
+    def update(self, instance, validated_data, **kwargs):
+        vehicle = self.context.get('vehicle', instance.vehicle)
+        automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
+        description = validated_data.get('description', instance.description)
+
+        update_data = {'vehicle': vehicle, 'automatic_confirm': automatic_confirm, 'description': description}
+        update_ride(instance, update_data)
+
+        single_rides = Ride.objects.filter(recurrent_ride=instance)
+        for ride in single_rides:
+            update_ride(ride, update_data)
+
+        return instance
 
     def get_duration(self, obj):
         return get_duration(obj)
@@ -202,3 +219,22 @@ def get_duration(obj: Ride):
     total_minutes = int(obj.duration.total_seconds() // 60)
     hours = total_minutes // 60
     return {'hours': hours, 'minutes': total_minutes - hours * 60}
+
+
+def update_ride(ride: Ride or RecurrentRide, update_data: dict):
+    for key, value in update_data.items():
+        setattr(ride, key, value)
+    ride.save()
+
+
+def get_ride_data(validated_data, context):
+    driver = context['driver']
+    vehicle = context['vehicle']
+    duration = context['duration']
+
+    city_from_data = validated_data.pop('city_from')
+    city_from, _ = City.objects.get_or_create(**city_from_data)
+    city_to_data = validated_data.pop('city_to')
+    city_to, _ = City.objects.get_or_create(**city_to_data)
+
+    return driver, vehicle, duration, city_from, city_to

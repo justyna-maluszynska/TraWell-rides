@@ -4,7 +4,7 @@ from typing import List
 from geopy import distance
 
 from cities.models import City
-from rides.models import Ride, Participation
+from rides.models import Ride, Participation, RecurrentRide
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -164,3 +164,16 @@ def validate_values(vehicle, duration, serializer, user) -> (bool, str):
     if not serializer.is_valid():
         return False, serializer.errors
     return True, 'OK'
+
+
+def is_user_a_driver(user: User, ride: Ride or RecurrentRide) -> bool:
+    return user == ride.driver
+
+
+def verify_available_seats(instance, data):
+    try:
+        if data['seats'] <= instance.seats - instance.available_seats:
+            return True
+        return False
+    except KeyError:
+        return False
