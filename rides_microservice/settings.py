@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     'cities',
     'vehicles',
     'rides',
-    # 'django_celery_results',
 ]
 
 MIDDLEWARE = [

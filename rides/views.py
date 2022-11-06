@@ -4,12 +4,10 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 
 from rides import tasks
-from rides.filters import RideFilter
-from rides.models import Ride, Participation
-from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationNestedSerializer
 from rides.filters import RideFilter, RecurrentRideFilter
 from rides.models import Ride, Participation, RecurrentRide
-from rides.serializers import *
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
+    RecurrentRideSerializer, RecurrentRidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -19,7 +17,6 @@ from rides.utils.utils import find_city_object, find_near_cities, get_city_info,
     filter_rides_by_cities, is_user_a_driver
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
-from users.serializers import UserSerializer
 
 
 class RecurrentRideViewSet(viewsets.ModelViewSet):
@@ -150,7 +147,6 @@ class RideViewSet(viewsets.ModelViewSet):
         """
         Gets queryset containing rides from cities near the starting city (city_from).
         The accepted range in km is defined in MAX_DISTANCE.
-
         :param city_from: dictionary with starting city data
         :param city_to: dictionary with destination city data
         :return: queryset with all available rides from city_from + the nearest cities to city_to
@@ -216,21 +212,7 @@ class RideViewSet(viewsets.ModelViewSet):
         status_code, message = create_new_ride(data=data, keys=expected_keys, user=user,
                                                serializer=self.get_serializer_class())
 
-        if user.private:
-            cleared_data['automatic_confirm'] = False
-
-        serializer = self.get_serializer_class()(data=cleared_data,
-                                                 context={'driver': user, 'vehicle': vehicle, 'duration': duration})
-
-        is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
-        if is_valid:
-            serializer.save()
-
-            tasks.publish_message(serializer.data)
-
-            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-        else:
-            return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
+        return JsonResponse(status=status_code, data=message, safe=False)
 
     @validate_token
     def create(self, request, *args, **kwargs):
@@ -238,65 +220,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
         response = self._create_new_ride(request=request, user=user)
         return response
-
-    def _verify_available_seats(self, data):
-        instance = self.get_object()
-
-        if data['seats'] < instance.seats - instance.available_seats:
-            return False
-        return True
-
-    def _update_serializer(self, data, context) -> JsonResponse:
-        instance = self.get_object()
-        serializer = self.get_serializer(instance=instance, data=data, partial=True)
-        if serializer.is_valid():
-            tasks.publish_message(serializer.data)
-
-            serializer.update(instance=instance, validated_data=data, partial=True, context=context)
-            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-
-        return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors, safe=False)
-
-    def _update_partial_ride(self, update_data, user):
-        context = {}
-
-        if user.private:
-            expected_keys = ['seats', 'vehicle', 'description']
-            vehicle = get_user_vehicle(update_data, user)
-            context['vehicle'] = vehicle
-        else:
-            expected_keys = ['seats', 'automatic_confirm', 'description']
-
-        cleared_data = filter_input_data(update_data, expected_keys=expected_keys)
-        if self._verify_available_seats(data=cleared_data):
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="Invalid seats parameter",
-                                safe=False)
-
-        return self._update_serializer(data=cleared_data, context=context)
-
-    def _update_whole_ride(self, update_data, user) -> JsonResponse:
-        cleared_data = filter_input_data(update_data,
-                                         expected_keys=['city_from', 'city_to', 'area_from', 'area_to',
-                                                        'start_date', 'price', 'seats', 'vehicle',
-                                                        'duration', 'description', 'coordinates',
-                                                        'automatic_confirm'])
-
-        context = {}
-        vehicle = get_user_vehicle(data=cleared_data, user=user)
-        if user.private:
-            context['vehicle'] = vehicle
-
-        duration = get_duration(cleared_data)
-        if duration is not None:
-            context['duration'] = duration
-
-        if user.private:
-            cleared_data['automatic_confirm'] = False
-
-        return self._update_serializer(data=cleared_data, context=context)
-
-    def _is_user_a_driver(self, user) -> bool:
-        return self.get_object().driver == user
 
     def _has_ride_passengers(self) -> bool:
         return self.get_object().passengers.filter(
@@ -339,11 +262,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
         if instance.driver == user:
-            instance.is_cancelled = True
-            instance.save()
-
-            tasks.publish_message(UserSerializer.data)
-
             cancel_ride(instance)
             return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
         else:
@@ -406,8 +324,7 @@ class RideViewSet(viewsets.ModelViewSet):
         if is_correct:
             decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
             participation = Participation.objects.create(ride=instance, user=user, decision=decision, reserved_seats=seats_no)
-
-            tasks.publish_message(participation.data)
+            tasks.publish_message(ParticipationSerializer(participation).data, 'participation.create')
 
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
@@ -437,9 +354,8 @@ class RideViewSet(viewsets.ModelViewSet):
                     if decision in [choice[0] for choice in Participation.Decision.choices]:
                         participation.decision = decision
                         participation.save()
-
-                        tasks.publish_message(ParticipationNestedSerializer.data)
-
+                        tasks.publish_message(ParticipationSerializer(participation).data,
+                                              'participation.decision')
                         return JsonResponse(status=status.HTTP_200_OK,
                                             data=f'Request successfully changed to {decision}', safe=False)
                     else:
@@ -473,9 +389,7 @@ class RideViewSet(viewsets.ModelViewSet):
             if participation.decision != Participation.Decision.CANCELLED:
                 participation.decision = Participation.Decision.CANCELLED
                 participation.save()
-
-                tasks.publish_message(ParticipationNestedSerializer.data)
-                
+                tasks.publish_message(ParticipationSerializer(participation).data, 'participation.delete')
                 return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
@@ -483,7 +397,6 @@ class RideViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete request",
                             safe=False)
-
 
     @validate_token
     @action(detail=True, methods=['get'])

@@ -11,5 +11,5 @@ def publish_message(message):
         producer.publish(
             message,
             exchange='trawell_exchange',
-            routing_key='notify.rides',
+            routing_key='notify',
         )

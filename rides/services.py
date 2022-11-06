@@ -2,6 +2,7 @@ import datetime
 
 from rest_framework import status
 
+from rides import tasks
 from rides.models import Ride, RecurrentRide
 from rides.serializers import RideSerializer, RecurrentRideSerializer
 from rides.utils.utils import validate_values, get_user_vehicle, filter_input_data, get_duration, verify_available_seats
@@ -30,6 +31,7 @@ def create_new_ride(data: dict, keys: list, user: User, serializer: RideSerializ
         return status.HTTP_400_BAD_REQUEST, message
 
     serializer.save()
+    tasks.publish_message(serializer.data, 'rides.create')
     return status.HTTP_200_OK, serializer.data
 
 
@@ -39,6 +41,7 @@ def update_using_serializer(instance: Ride or RecurrentRide, serializer: RideSer
 
     if serializer.is_valid():
         serializer.update(instance=instance, validated_data=data, partial=True, context=context)
+        tasks.publish_message(serializer.data, 'rides.update')
         return status.HTTP_200_OK, serializer.data
 
     return status.HTTP_400_BAD_REQUEST, serializer.errors
@@ -85,3 +88,12 @@ def update_whole_ride(instance, serializer, update_data, user):
 def cancel_ride(ride: Ride or RecurrentRide):
     ride.is_cancelled = True
     ride.save()
+
+    if type(ride) is RecurrentRide:
+        rides = Ride.objects.filter(recurrent_ride=ride).all()
+        serializer = RideSerializer(instance=rides, many=True)
+        tasks.publish_message(serializer.data, 'rides.cancel_recurrent')
+    else:
+        serializer = RideSerializer(ride)
+        tasks.publish_message(serializer.data, 'rides.cancel')
+

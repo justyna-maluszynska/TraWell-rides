@@ -4,13 +4,12 @@ import pandas as pd
 from django.contrib import admin
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.db.models.signals import m2m_changed
 from pandas import DatetimeIndex
 
 from cities.models import City
 from users.models import User
 from vehicles.models import Vehicle
-
-from django.db.models.signals import m2m_changed
 
 
 class RecurrentRide(models.Model):
