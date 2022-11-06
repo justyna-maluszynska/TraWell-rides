@@ -58,7 +58,7 @@ def update_partial_ride(instance, serializer, update_data, user):
         expected_keys = ['seats', 'automatic_confirm', 'description']
 
     cleared_data = filter_input_data(update_data, expected_keys=expected_keys)
-    if verify_available_seats(instance=instance, data=cleared_data):
+    if not verify_available_seats(instance=instance, data=cleared_data):
         return status.HTTP_400_BAD_REQUEST, "Invalid seats parameter"
 
     return update_using_serializer(instance=instance, serializer=serializer, data=cleared_data, context=context)

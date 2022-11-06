@@ -1,3 +1,17 @@
+How to completely clear database:
+
+At first you need to comment 'web' docker image in docker-compose file and all other connections to database (ex. beekeeper)
+
+1.Go to the terminal,
+2.Make sure that you're in the TraWell-rides folder
+3.Run 'docker ps' and copy the container id of rides_microservice_db_1 image from the list
+4.Run 'docker exec -it <container_id> /bin/bash'
+5. After bash activation run 'su - postgres'
+6. Run 'dropdb postgres'
+7. Run 'createdb postgres'
+8. CTRL-D
+
+Then you can uncomment 'web' docker image and run scripts as explained bellow:
 How to run scripts
 
 1.Go to the terminal,

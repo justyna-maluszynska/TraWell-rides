@@ -44,6 +44,9 @@ class RequestViewSet(viewsets.ModelViewSet):
         """
         user = kwargs['user']
 
+        if not user.private:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED,
+                                data=f"Company user not allowed to send request", safe=False)
         parameters = request.data
         try:
             seats_no = parameters['seats']
@@ -101,7 +104,7 @@ class RequestViewSet(viewsets.ModelViewSet):
                                 safe=False)
 
     @validate_token
-    def delete(self, request, *args, **kwargs):
+    def destroy(self, request, *args, **kwargs):
         """
         Endpoint for removing sent requests
         :param request:
@@ -115,6 +118,7 @@ class RequestViewSet(viewsets.ModelViewSet):
             if instance.decision != Participation.Decision.CANCELLED:
                 instance.decision = Participation.Decision.CANCELLED
                 instance.save()
+                print('hej')
                 return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",

@@ -1,6 +1,7 @@
 import datetime
 from typing import List
 
+from django.db.models import F
 from geopy import distance
 
 from cities.models import City
@@ -84,8 +85,7 @@ def filter_input_data(data: dict, expected_keys: list) -> dict:
 
 
 def filter_by_decision(decision, queryset):
-    if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED, Participation.Decision.DECLINED]:
-        print(decision)
+    if decision in [choice[0] for choice in Participation.Decision.choices]:
         return queryset.filter(decision=decision)
     return queryset
 
@@ -147,9 +147,16 @@ def is_user_a_driver(user: User, ride: Ride or RecurrentRide) -> bool:
 
 def verify_available_seats(instance, data):
     try:
-        if data['seats'] <= instance.seats - instance.available_seats:
+        if type(instance) is RecurrentRide:
+            if Ride.objects.annotate(seats_taken=F('seats') - F('available_seats')).filter(
+                    recurrent_ride=instance, seats_taken__gt=data['seats']).exists():
+                return False
             return True
-        return False
+
+        elif type(instance) is Ride:
+            if data['seats'] < instance.seats - instance.available_seats:
+                return False
+            return True
     except KeyError:
         return False
 

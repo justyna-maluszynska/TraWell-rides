@@ -54,5 +54,5 @@ def user_vehicle(data: dict, user: User) -> Vehicle or None:
         if user.private:
             vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
         return vehicle
-    except KeyError or Vehicle.DoesNotExist:
+    except (KeyError, Vehicle.DoesNotExist):
         return None

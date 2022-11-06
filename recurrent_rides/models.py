@@ -7,6 +7,7 @@ from pandas import DatetimeIndex
 
 from cities.models import City
 from rides.services import create_ride
+from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -51,11 +52,11 @@ class RecurrentRide(models.Model):
         if not self.ride_id:
             super(RecurrentRide, self).save(*args, **kwargs)
 
-        create_single_rides(self)
+        create_or_update_single_rides(self)
         super(RecurrentRide, self).save()
 
 
-def create_single_rides(recurrent_ride: RecurrentRide) -> None:
+def create_or_update_single_rides(recurrent_ride: RecurrentRide) -> None:
     frequency_type = recurrent_ride.frequency_type
     start_date = recurrent_ride.start_date
     end_date = recurrent_ride.end_date
@@ -73,12 +74,17 @@ def create_single_rides(recurrent_ride: RecurrentRide) -> None:
     elif frequency_type in RecurrentRide.FrequencyType.MONTHLY:
         dates = pd.date_range(start=start_date, end=end_date, freq=f'{frequence}M')
 
-    for start_date in dates:
-        data = {"driver": recurrent_ride.driver, "vehicle": recurrent_ride.vehicle,
-                "city_from": recurrent_ride.city_from,
-                "city_to": recurrent_ride.city_to, "duration": recurrent_ride.duration,
-                "area_from": recurrent_ride.area_from, "area_to": recurrent_ride.area_to, "start_date": start_date,
-                "price": recurrent_ride.price, "seats": recurrent_ride.seats, "recurrent": True,
-                "automatic_confirm": recurrent_ride.automatic_confirm, "description": recurrent_ride.description,
-                "recurrent_ride": recurrent_ride}
-        create_ride(data)
+    data = {"driver": recurrent_ride.driver, "vehicle": recurrent_ride.vehicle,
+            "city_from": recurrent_ride.city_from,
+            "city_to": recurrent_ride.city_to, "duration": recurrent_ride.duration,
+            "area_from": recurrent_ride.area_from, "area_to": recurrent_ride.area_to,
+            "price": recurrent_ride.price, "seats": recurrent_ride.seats, "recurrent": True,
+            "automatic_confirm": recurrent_ride.automatic_confirm, "description": recurrent_ride.description, }
+
+    if recurrent_ride.single_rides.exists():
+        recurrent_ride.single_rides.filter(**ACTUAL_RIDES_ARGS).update(**data)
+    else:
+        for start_date in dates:
+            data['start_date'] = start_date
+            data['recurrent_ride'] = recurrent_ride
+            create_ride(data)
