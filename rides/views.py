@@ -5,10 +5,10 @@ from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 
+from rides import tasks
 from rides.filters import RideFilter
 from rides.models import Ride, Participation
-from rides.producer import publish
-from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
+from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationNestedSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -17,6 +17,7 @@ from rides.utils.utils import find_city_object, find_near_cities, get_city_info,
 from users.models import User
 from rides.utils.CustomPagination import CustomPagination
 from rides.utils.validate_token import validate_token
+from users.serializers import UserSerializer
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -130,7 +131,7 @@ class RideViewSet(viewsets.ModelViewSet):
         is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
         if is_valid:
             serializer.save()
-            publish('ride_created', serializer.data)
+            tasks.publish_message(serializer.data)
             return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
@@ -140,9 +141,12 @@ class RideViewSet(viewsets.ModelViewSet):
         token = kwargs['decoded_token']
         user_email = token['email']
 
-        print(user_email)
         print('creating ride')
         print(request.data)
+
+        print('Try to publish with celery')
+        # tasks.publish_message({'hello': 'world'})
+        # print('published')
 
         try:
             user = User.objects.get(email=user_email)
@@ -163,7 +167,7 @@ class RideViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance=instance, data=data, partial=True)
         if serializer.is_valid():
-            publish('ride_updated', serializer.data)
+            tasks.publish_message(serializer.data)
 
             serializer.update(instance=instance, validated_data=data, partial=True, context=context)
             return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
@@ -261,7 +265,7 @@ class RideViewSet(viewsets.ModelViewSet):
             instance.is_cancelled = True
             instance.save()
 
-            publish('ride_canceled', instance.data)
+            tasks.publish_message(UserSerializer.data)
 
             return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
         else:
@@ -383,7 +387,7 @@ class RideViewSet(viewsets.ModelViewSet):
                         participation.decision = decision
                         participation.save()
 
-                        publish('request_decision', participation.data)
+                        tasks.publish_message(ParticipationNestedSerializer.data)
 
                         return JsonResponse(status=status.HTTP_200_OK,
                                             data=f'Request successfully changed to {decision}',
@@ -430,7 +434,7 @@ class RideViewSet(viewsets.ModelViewSet):
                     participation.decision = Participation.Decision.CANCELLED
                     participation.save()
 
-                    publish('request_deleted', participation.data)
+                    tasks.publish_message(ParticipationNestedSerializer.data)
 
                     return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
                 else:
