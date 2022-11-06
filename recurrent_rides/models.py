@@ -52,7 +52,7 @@ class RecurrentRide(models.Model):
             super(RecurrentRide, self).save(*args, **kwargs)
 
         create_single_rides(self)
-        super(RecurrentRide, self).save(*args, **kwargs)
+        super(RecurrentRide, self).save()
 
 
 def create_single_rides(recurrent_ride: RecurrentRide) -> None:

@@ -1,5 +1,6 @@
 import factory.django
 
+from users.factories import UserFactory
 from . import models
 
 vehicles_makes = ['audi', 'bmw', 'citroen', 'dacia', 'dodge', 'fiat', 'ford', 'hyundai', 'kia', 'mercedes', 'nissan',
@@ -15,3 +16,4 @@ class VehicleFactory(factory.django.DjangoModelFactory):
     make = factory.Faker('random_element', elements=vehicles_makes)
     model = factory.Faker('random_element', elements=vehicles_models)
     color = factory.Faker('safe_color_name')
+    user = factory.SubFactory(UserFactory)

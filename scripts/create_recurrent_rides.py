@@ -1,7 +1,7 @@
 import random
 
 from cities.models import City
-from rides.factories import RideWithPassengerFactory
+from recurrent_rides.factories import RecurrentRideFactory
 from users.models import User
 
 
@@ -23,4 +23,4 @@ def create(amount):
             vehicle = driver.vehicles.all()[0]
             seats = random.randint(1, 9)
 
-            RideWithPassengerFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats)
+            RecurrentRideFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats)
