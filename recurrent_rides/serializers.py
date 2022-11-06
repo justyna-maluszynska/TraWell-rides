@@ -3,10 +3,9 @@ from rest_framework import serializers
 from cities.serializers import CitySerializer
 from recurrent_rides.models import RecurrentRide
 from rides.models import Ride
-from rides.serializers import get_ride_data, update_ride
+from rides.serializers import get_ride_data, update_ride, get_duration
 from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.serializers import UserSerializer
-from utils.utils import get_duration
 from vehicles.serializers import VehicleSerializer
 
 

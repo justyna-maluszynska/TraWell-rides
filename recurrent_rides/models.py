@@ -81,4 +81,4 @@ def create_single_rides(recurrent_ride: RecurrentRide) -> None:
                 "price": recurrent_ride.price, "seats": recurrent_ride.seats, "recurrent": True,
                 "automatic_confirm": recurrent_ride.automatic_confirm, "description": recurrent_ride.description,
                 "recurrent_ride": recurrent_ride}
-        create_ride(**data)
+        create_ride(data)
