@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 
-import json
 import os
 
 import django
@@ -29,19 +28,6 @@ with app.pool.acquire(block=True) as conn:
         channel=conn,
     )
     exchange.declare()
-
-    # queue = kombu.Queue(
-    #     name='notifications',
-    #     exchange=exchange,
-    #     routing_key='notify.#',
-    #     channel=conn,
-    #     message_ttl=600,
-    #     queue_arguments={
-    #         'x-queue-type': 'classic'
-    #     },
-    #     durable=True
-    # )
-    # queue.declare()
 
     queue_rides = kombu.Queue(
         name='rides',

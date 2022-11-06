@@ -131,7 +131,9 @@ class RideViewSet(viewsets.ModelViewSet):
         is_valid, message = self._validate_values(vehicle=vehicle, duration=duration, serializer=serializer, user=user)
         if is_valid:
             serializer.save()
+
             tasks.publish_message(serializer.data)
+
             return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
@@ -349,7 +351,7 @@ class RideViewSet(viewsets.ModelViewSet):
             decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
             participation = Participation.objects.create(ride=instance, user=user, decision=decision, reserved_seats=seats_no)
 
-            publish('request_created', participation.data)
+            tasks.publish_message(participation.data)
 
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:

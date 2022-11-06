@@ -13,20 +13,6 @@ services:
       - "5433:5432"
     networks:
       - rabbitmq_network
-  
-  # queue:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: web_rides_queue
-  #   command: bash -c "docker exec -it 6bfe5ff4747d bash && python consumer.py"
-  #   depends_on:
-  #     - web_rides
-  #     - web_users
-  #     - rabbitmq
-  #   networks:
-  #     - rabbitmq_network
-
 
 #  web:
 #    build: .
