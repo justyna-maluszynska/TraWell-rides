@@ -4,6 +4,7 @@ from cities.models import City
 from rides.models import Ride, Participation, Coordinate, RecurrentRide
 from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.models import User
+from users.serializers import UserSerializer
 from vehicles.models import Vehicle
 
 
@@ -106,6 +107,7 @@ class ParticipationSerializer(serializers.ModelSerializer):
 
 class ParticipationAllSerializer(serializers.ModelSerializer):
     ride = RideListSerializer(many=False)
+    user = UserSerializer(many=False)
 
     class Meta:
         model = Participation
