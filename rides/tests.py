@@ -1,4 +1,5 @@
 import datetime
+import json
 
 import factory
 from django.test import TestCase
@@ -9,9 +10,10 @@ from cities.factories import CityFactory
 from cities.models import City
 from rides.factories import RideFactory, ParticipationFactory, RideWithPassengerFactory
 from rides.models import Ride, Participation
+from users.factories import UserFactory
 from vehicles.factories import VehicleFactory
 
-AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2Njc3ODUyMjMsImlhdCI6MTY2Nzc2NzIyMywiYXV0aF90aW1lIjoxNjY3NzY3MjIzLCJqdGkiOiI3OWM1Y2RjYi01MzFlLTRjMTUtOGQ0OC1iMDlmZDBlYWFkNGIiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiZmMwZjRlZTAtNzAzYS00ZTkwLWEwZTQtODdjMzIzMjkyNTk5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiI3N2JjNzMxZi1mYjA0LTRkMGQtYTExOS0wYzM1YzY3YmZkNWQiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwicHJpdmF0ZV91c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6Ijc3YmM3MzFmLWZiMDQtNGQwZC1hMTE5LTBjMzVjNjdiZmQ1ZCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJQcml2YXRlIEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAyMi0xMC0zMSIsImZhY2Vib29rIjoiIiwibmFtZSI6Imp1c3R5bmEgbWFsIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZm1hanJveEBnbWFpbC5jb20iLCJpbnN0YWdyYW0iOiIiLCJnaXZlbl9uYW1lIjoianVzdHluYSIsImZhbWlseV9uYW1lIjoibWFsIiwiZW1haWwiOiJmbWFqcm94QGdtYWlsLmNvbSJ9.XRwjr6JuB6snJDq5CuF4B72Ds4MCfGclgVCCeK1YFKCB1EtP80h8V8UFUatwodkGy4vdprWelKlJfiLLfI_6XFFmEpLmUMLfjp2BTyHOvJQY-uQBkfouf-42xGZBJFP4csOq0Gir4RDcMua5pt_Cws6z1wVaqoFCXnwCXCyNBM5SaAQF1gwFEp9MD--4ah6Js18my7OQZD5vz1ipQgc1S8o0FBJVBK5sAFyiDrnKbLuhOvK_EKDIDOrZcRF3mJrxCdRwAqh7WMMFsT2SfdFx44knDpXbZwtd4SL8HzsytCN7DLx5uHQ61Gv3O69NBIZxlW9TTIVHcQcD9ZOz2YKaMQ"
+AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2Njc4NzAwNTksImlhdCI6MTY2Nzg1MjA1OSwiYXV0aF90aW1lIjoxNjY3ODUyMDU5LCJqdGkiOiIxNzQ5NmE4NS1lZjI0LTRiMDgtOWY0OS1kNWYyNDcyZTA4OGYiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiZmMwZjRlZTAtNzAzYS00ZTkwLWEwZTQtODdjMzIzMjkyNTk5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiI1OTVhNTg0MC1hNWNkLTQzYWItYmIzMC03YWFiOTE3ZTkxNzgiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwicHJpdmF0ZV91c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjU5NWE1ODQwLWE1Y2QtNDNhYi1iYjMwLTdhYWI5MTdlOTE3OCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJQcml2YXRlIEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAyMi0xMC0zMSIsImZhY2Vib29rIjoiIiwibmFtZSI6Imp1c3R5bmEgbWFsIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZm1hanJveEBnbWFpbC5jb20iLCJpbnN0YWdyYW0iOiIiLCJnaXZlbl9uYW1lIjoianVzdHluYSIsImZhbWlseV9uYW1lIjoibWFsIiwiZW1haWwiOiJmbWFqcm94QGdtYWlsLmNvbSJ9.aOP7wCswf2UK7udIdy75hP1iu7ZonbA8CZFjv55T7Mel7XxxmxNl7dw1I0bIaG5et7E6pyf13yHJ5IGQQPz3JXZoOMxtco8alNL5hPd-0IL7gGh5Nl-uW4bbpuHjWka-eDy9bzbx8wV7-nE2lMnSP90lVpGaqpFQuY-sMId5mQF3kY54Sgn2_PSmQF47Mwo-F8UvllqwlrJZjiZbUILjdHSsPYc3pPejEaRl0JCKrg18dCvyjhvtVBq5cpeaBrdpRKtrjXl7mf6h2Bav62Jt-bajcRE_6aSGV1OacVbiyIHtAGi8VkQUhjInw_RTSprXSuOT-902mNIaqa-6Ogopxw"
 
 
 class RideModelTests(TestCase):
@@ -90,21 +92,21 @@ class RideViewSetTests(TestCase):
         response = self.client.get(f"/rides/{ride_factory.ride_id}/")
         results = response.data
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(results['ride_id'], ride_factory.ride_id)
 
     def test_returns_details_for_authorized_user(self):
         ride_factory = RideWithPassengerFactory()
 
         response = self.client.get(f"/rides/{ride_factory.ride_id}/")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data
 
         self.assertEqual(results['ride_id'], ride_factory.ride_id)
 
     def test_get_not_existing_ride(self):
         response = self.client.get(f"/rides/1/")
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_post_ride_for_not_authorized_user(self):
         self.client.credentials()
@@ -125,6 +127,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), {'city_from': ['This field is required.']})
 
     def test_post_ride_creates_new_ride_and_cities(self):
         rides_before_post = len(Ride.objects.all())
@@ -148,6 +151,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Duration parameter is invalid")
 
     def test_post_ride_vehicle_do_not_belong_to_user(self):
         post_data = prepare_data_for_post()
@@ -156,6 +160,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Vehicle parameter is invalid")
 
     def test_post_ride_company_user(self):
         post_data = prepare_data_for_post(user_private=False)
@@ -183,3 +188,83 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Vehicle parameter is invalid")
+
+    def test_post_calculates_available_seats(self):
+        post_data = prepare_data_for_post()
+        seats = post_data['seats']
+        response = self.client.post(f"/rides/", data=post_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        content = json.loads(response.content)
+        ride = Ride.objects.get(ride_id=content['ride_id'])
+        self.assertEqual(seats, ride.available_seats)
+
+    def test_partial_update_ride_successful(self):
+        user = UserFactory(email='fmajrox@gmail.com', private=True)
+        vehicle = VehicleFactory.create_batch(size=2, user=user)
+        ride = RideWithPassengerFactory.create(seats=10, vehicle=vehicle[0], driver=user)
+        patch_data = {'seats': 5, 'vehicle': vehicle[1].vehicle_id, 'description': 'updated description'}
+
+        response = self.client.patch(f"/rides/{ride.ride_id}/", data=patch_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ride_obj = Ride.objects.get(ride_id=ride.ride_id)
+
+        self.assertEqual(ride_obj.seats, patch_data['seats'])
+        self.assertEqual(ride_obj.description, patch_data['description'])
+        self.assertEqual(ride_obj.vehicle.vehicle_id, patch_data['vehicle'])
+
+    def test_partial_update_ride_company_user_successful(self):
+        user = UserFactory(email='fmajrox@gmail.com', private=False)
+        ride = RideWithPassengerFactory.create(seats=10, driver=user, automatic_confirm=True)
+        patch_data = {'seats': 5, 'automatic_confirm': False, 'description': 'updated description'}
+
+        response = self.client.patch(f"/rides/{ride.ride_id}/", data=patch_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ride_obj = Ride.objects.get(ride_id=ride.ride_id)
+
+        self.assertEqual(ride_obj.seats, patch_data['seats'])
+        self.assertEqual(ride_obj.description, patch_data['description'])
+        self.assertEqual(ride_obj.automatic_confirm, patch_data['automatic_confirm'])
+
+    def test_full_update_ride_successful(self):
+        ride_data = prepare_data_for_post()
+
+        response = self.client.post(f"/rides/", data=ride_data, format='json')
+        content = json.loads(response.content)
+        ride = Ride.objects.get(ride_id=content['ride_id'])
+
+        city_from = factory.build(dict, FACTORY_CLASS=CityFactory)
+        city_to = factory.build(dict, FACTORY_CLASS=CityFactory)
+
+        ride_data.update(
+            {'city_from': city_from, 'city_to': city_to, 'price': 139.99, 'start_date': "2035-12-01T04:00:22Z",
+             'coordinates': [{'lat': 108.765432, 'lng': 45.565655, 'sequence_no': 1}], 'seats': 99,
+             "duration": {"hours": 6, "minutes": 36}, })
+
+        patch_response = self.client.patch(f"/rides/{ride.ride_id}/", data=ride_data, format='json')
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+
+        ride_after_update = Ride.objects.get(ride_id=content['ride_id'])
+        self.assertEqual(ride_after_update.city_from.name, city_from['name'])
+        self.assertEqual(ride_after_update.city_to.name, city_to['name'])
+        self.assertEqual(len(ride_after_update.coordinates.all()), len(ride_data['coordinates']))
+        self.assertEqual(float(ride_after_update.price), ride_data['price'])
+        self.assertEqual(ride_after_update.start_date.isoformat()[:-6] + 'Z', ride_data['start_date'])
+        self.assertEqual(ride_after_update.seats, ride_data['seats'])
+        self.assertEqual(ride_after_update.duration, datetime.timedelta(hours=ride_data['duration']['hours'],
+                                                                        minutes=ride_data['duration']['minutes']))
+
+    def test_patch_do_not_allow_incorrect_seats(self):
+        user = UserFactory(email='fmajrox@gmail.com', private=True)
+        vehicle = VehicleFactory.create_batch(size=2, user=user)
+        ride = RideWithPassengerFactory.create(seats=10, vehicle=vehicle[0], driver=user,
+                                               participation__reserved_seats=5)
+        patch_data = {'seats': 1, 'vehicle': vehicle[1].vehicle_id, 'description': 'updated description'}
+
+        response = self.client.patch(f"/rides/{ride.ride_id}/", data=patch_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Invalid seats parameter")

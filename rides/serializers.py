@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from rest_framework import serializers
 
 from cities.models import City
@@ -83,19 +85,19 @@ class RideSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data, **kwargs):
         requested_city_from = validated_data.get('city_from', instance.city_from)
-        if type(requested_city_from) is dict:
+        if type(requested_city_from) is OrderedDict:
             city_from, _ = City.objects.get_or_create(**requested_city_from)
             instance.city_from = city_from
 
         requested_city_to = validated_data.get('city_to', instance.city_to)
-        if type(requested_city_to) is dict:
+        if type(requested_city_to) is OrderedDict:
             city_to, _ = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
 
         coordinates = validated_data.get('coordinates', instance.coordinates.all())
         new_coordinates = []
         for coordinate in coordinates:
-            if type(coordinate) is dict:
+            if type(coordinate) is OrderedDict:
                 new_coordinates.append(
                     Coordinate.objects.get_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
                                                      defaults={'sequence_no': coordinate['sequence_no']})[0])

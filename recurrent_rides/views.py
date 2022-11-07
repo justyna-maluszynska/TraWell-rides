@@ -12,7 +12,7 @@ from recurrent_rides.serializers import RecurrentRideSerializer, RecurrentRidePe
 from rides.models import Ride
 from utils.CustomPagination import CustomPagination
 from rides.utils.constants import ACTUAL_RIDES_ARGS
-from utils.services import create_new_ride, update_partial_ride, cancel_ride
+from utils.services import create_or_update_ride, update_partial_ride, cancel_ride
 from utils.utils import is_user_a_driver, filter_rides_by_cities
 from utils.validate_token import validate_token
 
@@ -50,8 +50,8 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
                          'duration', 'description', 'coordinates', 'automatic_confirm', 'frequency_type', 'frequence',
                          'occurrences', 'end_date']
 
-        status_code, message = create_new_ride(data=data, keys=expected_keys, user=user,
-                                               serializer=self.get_serializer_class())
+        status_code, message = create_or_update_ride(data=data, keys=expected_keys, user=user,
+                                                     serializer=self.get_serializer_class())
 
         return JsonResponse(status=status_code, data=message, safe=False)
 
