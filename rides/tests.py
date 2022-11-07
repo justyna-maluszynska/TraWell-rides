@@ -268,3 +268,25 @@ class RideViewSetTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(json.loads(response.content), "Invalid seats parameter")
+
+    def test_delete_ride_successfully(self):
+        vehicle = VehicleFactory.create(user__email='fmajrox@gmail.com')
+        ride = RideWithPassengerFactory.create(seats=2, vehicle=vehicle, driver=vehicle.user)
+
+        response = self.client.delete(f"/rides/{ride.ride_id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        ride_obj = Ride.objects.get(ride_id=ride.ride_id)
+        self.assertEqual(ride_obj.is_cancelled, True)
+
+        response = self.client.get(f'/rides/{ride.ride_id}/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_ride_not_allowed(self):
+        UserFactory.create(email='fmajrox@gmail.com')
+        ride = RideFactory.create()
+
+        response = self.client.delete(f"/rides/{ride.ride_id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(json.loads(response.content), "User not allowed to delete ride")
