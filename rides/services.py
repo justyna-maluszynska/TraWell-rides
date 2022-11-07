@@ -30,8 +30,15 @@ def create_new_ride(data: dict, keys: list, user: User, serializer: RideSerializ
     if not is_valid:
         return status.HTTP_400_BAD_REQUEST, message
 
-    serializer.save()
-    tasks.publish_message(serializer.data, 'rides.create')
+    ride = serializer.save()
+
+    if type(ride) is RecurrentRide:
+        rides = Ride.objects.filter(recurrent_ride=ride).all()
+        serializer = RideSerializer(instance=rides, many=True)
+        tasks.publish_message(serializer.data, 'rides.create.many')
+    else:
+        tasks.publish_message(serializer.data, 'rides.create')
+
     return status.HTTP_200_OK, serializer.data
 
 
@@ -41,7 +48,14 @@ def update_using_serializer(instance: Ride or RecurrentRide, serializer: RideSer
 
     if serializer.is_valid():
         serializer.update(instance=instance, validated_data=data, partial=True, context=context)
-        tasks.publish_message(serializer.data, 'rides.update')
+
+        if type(instance) is RecurrentRide:
+            rides = Ride.objects.filter(recurrent_ride=instance).all()
+            serializer = RideSerializer(instance=rides, many=True)
+            tasks.publish_message(serializer.data, 'rides.update.many')
+        else:
+            tasks.publish_message(serializer.data, 'rides.update')
+
         return status.HTTP_200_OK, serializer.data
 
     return status.HTTP_400_BAD_REQUEST, serializer.errors
@@ -92,7 +106,7 @@ def cancel_ride(ride: Ride or RecurrentRide):
     if type(ride) is RecurrentRide:
         rides = Ride.objects.filter(recurrent_ride=ride).all()
         serializer = RideSerializer(instance=rides, many=True)
-        tasks.publish_message(serializer.data, 'rides.cancel_recurrent')
+        tasks.publish_message(serializer.data, 'rides.cancel.many')
     else:
         serializer = RideSerializer(ride)
         tasks.publish_message(serializer.data, 'rides.cancel')

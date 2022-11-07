@@ -7,7 +7,7 @@ from rides import tasks
 from rides.filters import RideFilter, RecurrentRideFilter
 from rides.models import Ride, Participation, RecurrentRide
 from rides.serializers import RideSerializer, RideListSerializer, RidePersonal, ParticipationSerializer, \
-    RecurrentRideSerializer, RecurrentRidePersonal
+    RecurrentRideSerializer, RecurrentRidePersonal, ParticipationAllSerializer
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
@@ -324,7 +324,7 @@ class RideViewSet(viewsets.ModelViewSet):
         if is_correct:
             decision = Participation.Decision.ACCEPTED if instance.automatic_confirm else Participation.Decision.PENDING
             participation = Participation.objects.create(ride=instance, user=user, decision=decision, reserved_seats=seats_no)
-            tasks.publish_message(ParticipationSerializer(participation).data, 'participation.create')
+            tasks.publish_message(ParticipationAllSerializer(participation).data, 'participation')
 
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
@@ -354,8 +354,8 @@ class RideViewSet(viewsets.ModelViewSet):
                     if decision in [choice[0] for choice in Participation.Decision.choices]:
                         participation.decision = decision
                         participation.save()
-                        tasks.publish_message(ParticipationSerializer(participation).data,
-                                              'participation.decision')
+                        tasks.publish_message(ParticipationAllSerializer(participation).data, 'participation')
+
                         return JsonResponse(status=status.HTTP_200_OK,
                                             data=f'Request successfully changed to {decision}', safe=False)
                     else:
@@ -389,7 +389,8 @@ class RideViewSet(viewsets.ModelViewSet):
             if participation.decision != Participation.Decision.CANCELLED:
                 participation.decision = Participation.Decision.CANCELLED
                 participation.save()
-                tasks.publish_message(ParticipationSerializer(participation).data, 'participation.delete')
+                tasks.publish_message(ParticipationAllSerializer(participation).data, 'participation')
+
                 return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",

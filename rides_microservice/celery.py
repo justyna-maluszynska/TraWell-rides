@@ -29,10 +29,23 @@ with app.pool.acquire(block=True) as conn:
     )
     exchange.declare()
 
+    queue_notify = kombu.Queue(
+        name='notifications',
+        exchange=exchange,
+        routing_key='notify',
+        channel=conn,
+        message_ttl=600,
+        queue_arguments={
+            'x-queue-type': 'classic'
+        },
+        durable=True
+    )
+    queue_notify.declare()
+
     queue = kombu.Queue(
         name='rides',
         exchange=exchange,
-        routing_key='keys.#',
+        routing_key='send',
         channel=conn,
         message_ttl=600,
         queue_arguments={
@@ -53,91 +66,63 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                                accept=['json'])]
 
     def handle_message(self, body, message):
-        # print('Received message: {0!r}'.format(body))
-        # print(message)
-        if body['title'] == 'users.update':
+        print('Received message: {0!r}'.format(body))
+        print(message)
+        if body['title'] == 'users':
             try:
                 user = User.objects.get(user_id=body['message']['user_id'])
-                user_data = {'first_name': body['message']['first_name'],
-                             'last_name': body['message']["last_name"],
-                             'avatar': body['message']['avatar']
-                             }
+                user_data = {
+                    'first_name': body['message']['first_name'],
+                    'last_name': body['message']["last_name"],
+                    'avatar': body['message']['avatar'],
+                    'avg_rate': body['message']['avg_rate']
+                }
                 serializer = UserSerializer(user, data=user_data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
 
             except User.DoesNotExist:
-                new_user = User.objects.create(first_name=body['message']['first_name'],
-                                               last_name=body['message']["last_name"],
-                                               email=body['message']["email"],
-                                               avatar=body['message']['avatar'],
-                                               private=True if body['message']['user_type'] == 'private' else False,
-                                               avg_rate=0.0,
-                                               user_id=body['message']['user_id']
-                                               )
+                new_user = User.objects.create(
+                    user_id=body['message']['user_id'],
+                    first_name=body['message']['first_name'],
+                    last_name=body['message']["last_name"],
+                    email=body['message']["email"],
+                    avatar=body['message']['avatar'],
+                    private=True if body['message']['user_type'] == 'private' else False,
+                    avg_rate=body['message']['avg_rate']
+                )
                 new_user.save()
-
-        if body['title'] == 'users.patch':
-            try:
-                user = User.objects.get(user_id=body['message']['user_id'])
-                user_data = {'first_name': body['message']['first_name'],
-                             'last_name': body['message']["last_name"],
-                             'avatar': body['message']['avatar'],
-                             'avg_rate': body['message']['avg_rate'],
-                             }
-                serializer = UserSerializer(user, data=user_data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-
-            except User.DoesNotExist:
-                new_user = User.objects.create(first_name=body['message']['first_name'],
-                                               last_name=body['message']["last_name"],
-                                               email=body['message']["email"],
-                                               avatar=body['message']['avatar'],
-                                               private=True if body['message']['user_type'] == 'private' else False,
-                                               avg_rate=0.0,
-                                               user_id=body['message']['user_id']
-                                               )
-                new_user.save()
-
-        if body['title'] == 'users.create':
-            new_user = User.objects.create(first_name=body['message']['first_name'],
-                                           last_name=body['message']["last_name"],
-                                           email=body['message']["email"],
-                                           avatar=body['message']['avatar'],
-                                           private=True if body['message']['user_type'] == 'private' else False,
-                                           avg_rate=0.0,
-                                           user_id=body['message']['user_id']
-                                           )
-            new_user.save()
 
         if body['title'] == 'vehicles.create':
             try:
                 User.objects.get(user_id=body['message']['user']['user_id'])
 
             except User.DoesNotExist:
-                new_user = User.objects.create(first_name=body['message']['user']['first_name'],
-                                               last_name=body['message']['user']["last_name"],
-                                               email=body['message']['user']["email"],
-                                               avatar=body['message']['user']['avatar'],
-                                               private=True if body['message']['user']['user_type'] == 'private' else False,
-                                               avg_rate=0.0,
-                                               user_id=body['message']['user']['user_id']
-                                               )
+                new_user = User.objects.create(
+                    user_id=body['message']['user']['user_id'],
+                    first_name=body['message']['user']['first_name'],
+                    last_name=body['message']['user']["last_name"],
+                    email=body['message']['user']["email"],
+                    avatar=body['message']['user']['avatar'],
+                    private=True if body['message']['user']['user_type'] == 'private' else False,
+                    avg_rate=body['message']['avg_rate']
+                )
                 new_user.save()
 
             try:
                 Vehicle.objects.get(vehicle_id=body['message']['vehicle_id'])
             except Vehicle.DoesNotExist:
-                new_vehicle = Vehicle.objects.create(vehicle_id=body['message']['vehicle_id'],
-                                                     make=body['message']['make'],
-                                                     model=body['message']['model'],
-                                                     color=body['message']['color'],
-                                                     user_id=body['message']['user']['user_id'])
+                new_vehicle = Vehicle.objects.create(
+                    vehicle_id=body['message']['vehicle_id'],
+                    make=body['message']['make'],
+                    model=body['message']['model'],
+                    color=body['message']['color'],
+                    user_id=body['message']['user']['user_id']
+                )
                 new_vehicle.save()
 
         if body['title'] == 'vehicles.patch':
-            print('Message received on vehicles queue\n patch to implement')
+            print('Message received on vehicles queue\n patch proly should not be implemented')
 
         if body['title'] == 'vehicles.delete':
             try:

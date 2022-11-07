@@ -104,6 +104,14 @@ class ParticipationSerializer(serializers.ModelSerializer):
         fields = ('id', 'ride', 'decision', 'reserved_seats')
 
 
+class ParticipationAllSerializer(serializers.ModelSerializer):
+    ride = RideListSerializer(many=False)
+
+    class Meta:
+        model = Participation
+        fields = ('id', 'ride', 'user', 'decision', 'reserved_seats')
+
+
 class RideSerializer(serializers.ModelSerializer):
     city_from = CityNestedSerializer(many=False)
     city_to = CityNestedSerializer(many=False)
