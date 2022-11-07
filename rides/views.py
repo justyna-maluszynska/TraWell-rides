@@ -11,7 +11,7 @@ from rest_framework.filters import OrderingFilter
 
 from rides.utils.constants import ACTUAL_RIDES_ARGS
 from utils.selectors import city_object, rides_with_cities_nearby
-from utils.services import create_new_ride, update_partial_ride, update_whole_ride, cancel_ride
+from utils.services import create_or_update_ride, update_partial_ride, update_whole_ride, cancel_ride
 from utils.utils import get_city_info, filter_rides_by_cities, is_user_a_driver
 from utils.CustomPagination import CustomPagination
 from utils.validate_token import validate_token
@@ -95,8 +95,8 @@ class RideViewSet(viewsets.ModelViewSet):
         expected_keys = ['city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'price', 'seats', 'vehicle',
                          'duration', 'description', 'coordinates', 'automatic_confirm']
 
-        status_code, message = create_new_ride(data=data, keys=expected_keys, user=user,
-                                               serializer=self.get_serializer_class())
+        status_code, message = create_or_update_ride(data=data, keys=expected_keys, user=user,
+                                                     serializer=self.get_serializer_class())
 
         return JsonResponse(status=status_code, data=message, safe=False)
 

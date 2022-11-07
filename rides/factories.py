@@ -1,5 +1,6 @@
 import factory.django
 import pytz
+from factory import fuzzy
 
 from cities.factories import CityFactory
 from users.factories import UserFactory
@@ -34,13 +35,13 @@ class ParticipationFactory(factory.django.DjangoModelFactory):
 
     ride = factory.SubFactory(RideFactory)
     user = factory.SubFactory(UserFactory)
-    decision = factory.Iterator([models.Participation.Decision.ACCEPTED[0], models.Participation.Decision.DECLINED[0],
-                                 models.Participation.Decision.PENDING[0], models.Participation.Decision.CANCELLED[0]])
-    reserved_seats = factory.Iterator([1, 2, 3])
+    decision = factory.fuzzy.FuzzyChoice(['accepted', 'pending', 'cancelled', 'declined'])
+    reserved_seats = factory.fuzzy.FuzzyChoice([1, 2, 3])
 
 
 class RideWithPassengerFactory(RideFactory):
-    participation = factory.RelatedFactory(ParticipationFactory, factory_related_name='ride')
+    participation = factory.RelatedFactory(ParticipationFactory, factory_related_name='ride',
+                                           **{'decision': 'pending'})
 
 
 class RideWith2PassengersFactory(RideFactory):

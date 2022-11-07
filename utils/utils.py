@@ -131,10 +131,10 @@ def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     return True, "OK"
 
 
-def validate_values(vehicle, duration, serializer, user) -> (bool, str):
+def validate_values(vehicle, duration, serializer, user, partial) -> (bool, str):
     if vehicle is None and user.private:
         return False, 'Vehicle parameter is invalid'
-    if duration is None:
+    if duration is None and not partial:
         return False, 'Duration parameter is invalid'
     if not serializer.is_valid():
         return False, serializer.errors
