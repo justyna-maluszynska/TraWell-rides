@@ -92,21 +92,21 @@ class RideViewSetTests(TestCase):
         response = self.client.get(f"/rides/{ride_factory.ride_id}/")
         results = response.data
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(results['ride_id'], ride_factory.ride_id)
 
     def test_returns_details_for_authorized_user(self):
         ride_factory = RideWithPassengerFactory()
 
         response = self.client.get(f"/rides/{ride_factory.ride_id}/")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data
 
         self.assertEqual(results['ride_id'], ride_factory.ride_id)
 
     def test_get_not_existing_ride(self):
         response = self.client.get(f"/rides/1/")
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_post_ride_for_not_authorized_user(self):
         self.client.credentials()
@@ -127,6 +127,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), {'city_from': ['This field is required.']})
 
     def test_post_ride_creates_new_ride_and_cities(self):
         rides_before_post = len(Ride.objects.all())
@@ -150,6 +151,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Duration parameter is invalid")
 
     def test_post_ride_vehicle_do_not_belong_to_user(self):
         post_data = prepare_data_for_post()
@@ -158,6 +160,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Vehicle parameter is invalid")
 
     def test_post_ride_company_user(self):
         post_data = prepare_data_for_post(user_private=False)
@@ -185,6 +188,7 @@ class RideViewSetTests(TestCase):
 
         response = self.client.post(f"/rides/", data=post_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Vehicle parameter is invalid")
 
     def test_post_calculates_available_seats(self):
         post_data = prepare_data_for_post()
@@ -252,3 +256,15 @@ class RideViewSetTests(TestCase):
         self.assertEqual(ride_after_update.seats, ride_data['seats'])
         self.assertEqual(ride_after_update.duration, datetime.timedelta(hours=ride_data['duration']['hours'],
                                                                         minutes=ride_data['duration']['minutes']))
+
+    def test_patch_do_not_allow_incorrect_seats(self):
+        user = UserFactory(email='fmajrox@gmail.com', private=True)
+        vehicle = VehicleFactory.create_batch(size=2, user=user)
+        ride = RideWithPassengerFactory.create(seats=10, vehicle=vehicle[0], driver=user,
+                                               participation__reserved_seats=5)
+        patch_data = {'seats': 1, 'vehicle': vehicle[1].vehicle_id, 'description': 'updated description'}
+
+        response = self.client.patch(f"/rides/{ride.ride_id}/", data=patch_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(json.loads(response.content), "Invalid seats parameter")
