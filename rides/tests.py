@@ -13,7 +13,7 @@ from rides.models import Ride, Participation
 from users.factories import UserFactory
 from vehicles.factories import VehicleFactory
 
-AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2Njc4NzAwNTksImlhdCI6MTY2Nzg1MjA1OSwiYXV0aF90aW1lIjoxNjY3ODUyMDU5LCJqdGkiOiIxNzQ5NmE4NS1lZjI0LTRiMDgtOWY0OS1kNWYyNDcyZTA4OGYiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiZmMwZjRlZTAtNzAzYS00ZTkwLWEwZTQtODdjMzIzMjkyNTk5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiI1OTVhNTg0MC1hNWNkLTQzYWItYmIzMC03YWFiOTE3ZTkxNzgiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwicHJpdmF0ZV91c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjU5NWE1ODQwLWE1Y2QtNDNhYi1iYjMwLTdhYWI5MTdlOTE3OCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJQcml2YXRlIEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAyMi0xMC0zMSIsImZhY2Vib29rIjoiIiwibmFtZSI6Imp1c3R5bmEgbWFsIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZm1hanJveEBnbWFpbC5jb20iLCJpbnN0YWdyYW0iOiIiLCJnaXZlbl9uYW1lIjoianVzdHluYSIsImZhbWlseV9uYW1lIjoibWFsIiwiZW1haWwiOiJmbWFqcm94QGdtYWlsLmNvbSJ9.aOP7wCswf2UK7udIdy75hP1iu7ZonbA8CZFjv55T7Mel7XxxmxNl7dw1I0bIaG5et7E6pyf13yHJ5IGQQPz3JXZoOMxtco8alNL5hPd-0IL7gGh5Nl-uW4bbpuHjWka-eDy9bzbx8wV7-nE2lMnSP90lVpGaqpFQuY-sMId5mQF3kY54Sgn2_PSmQF47Mwo-F8UvllqwlrJZjiZbUILjdHSsPYc3pPejEaRl0JCKrg18dCvyjhvtVBq5cpeaBrdpRKtrjXl7mf6h2Bav62Jt-bajcRE_6aSGV1OacVbiyIHtAGi8VkQUhjInw_RTSprXSuOT-902mNIaqa-6Ogopxw"
+AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2Njc5MTQwMTMsImlhdCI6MTY2Nzg5NjAxMywiYXV0aF90aW1lIjoxNjY3ODk2MDEzLCJqdGkiOiJkNGZhMTljNi05ZmEwLTRhMjUtODA5Ni02NDc3OTc4NjI3ODEiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiZmMwZjRlZTAtNzAzYS00ZTkwLWEwZTQtODdjMzIzMjkyNTk5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiI2YmZkZTg4NC03ZWNhLTQ5MDYtYWI4MS01OTk0NGZjZjdiZjQiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwicHJpdmF0ZV91c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjZiZmRlODg0LTdlY2EtNDkwNi1hYjgxLTU5OTQ0ZmNmN2JmNCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJQcml2YXRlIEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAyMi0xMC0zMSIsImZhY2Vib29rIjoiIiwibmFtZSI6Imp1c3R5bmEgbWFsIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZm1hanJveEBnbWFpbC5jb20iLCJpbnN0YWdyYW0iOiIiLCJnaXZlbl9uYW1lIjoianVzdHluYSIsImZhbWlseV9uYW1lIjoibWFsIiwiZW1haWwiOiJmbWFqcm94QGdtYWlsLmNvbSJ9.Pu_XOMDE5Z2t65VvXNvQUdQG1bbM7SRr4cyRpiUpv2iODy9kJ-uBil9i-G4QuJMY1QP1MakUGPnpCaAy-i2fbv5ufXLNsTMGCVutHmG33uT6n4dR4Ha4FQIEltTpuQgQKeNwjZpB5t1IbtYG9GTBJbxuapvphFPp8BWoFu5L6R2dd7t7dopSEqCXwj47UBWMuZ6d19EHXHrb0FkaRWQTYsjdk-0vW8EIITYclz3X8DQOq5dsbCfiE9wnfuqVDwNnCzMa-v0cQlpIZV07kp-TH93QRx0ouVGN-wUbS1Rj654tBeo5rsMWkaSU-1iI7_yrq9Mis361-CBk2Mwvo0rWZQ"
 
 
 class RideModelTests(TestCase):
@@ -60,8 +60,9 @@ class RideModelTests(TestCase):
             self.assertEqual(ride.can_driver_edit, True)
 
 
-def convert_city_to_dict(city: City) -> dict:
-    return {'name': city.name, 'county': city.county, 'state': city.state, 'lat': city.lat, 'lng': city.lng}
+def convert_city_to_dict(city: City, prefix: str = '', city_name_key: str = 'name') -> dict:
+    return {f'{city_name_key}': city.name, f'{prefix}county': city.county, f'{prefix}state': city.state,
+            f'{prefix}lat': city.lat, f'{prefix}lng': city.lng}
 
 
 def prepare_data_for_post(user_private: bool = True) -> dict:
@@ -84,6 +85,13 @@ class RideViewSetTests(TestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.client.credentials(HTTP_AUTHORIZATION=AUTH_TOKEN)
+
+    def _prepare_cities_and_date(self):
+        city_from = CityFactory.create()
+        city_to = CityFactory.create()
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        yesterday = datetime.date.today() + datetime.timedelta(days=1)
+        return city_from, city_to, tomorrow, yesterday
 
     def test_returns_details_for_not_authorized_user(self):
         self.client.credentials()
@@ -290,3 +298,79 @@ class RideViewSetTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(json.loads(response.content), "User not allowed to delete ride")
+
+    def test_get_filtered_returns_rides(self):
+        city_from, city_to, tomorrow, _ = self._prepare_cities_and_date()
+        RideFactory.create_batch(size=20,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': tomorrow, 'seats': 3})
+
+        query_strings = \
+            convert_city_to_dict(city_from, prefix='city_from_', city_name_key='city_from') | convert_city_to_dict(
+                city_to, prefix='city_to_', city_name_key='city_to') | {'page': 1, 'seats': 2,
+                                                                        'start_date': tomorrow.isoformat()}
+        response = self.client.get(f'/rides/get_filtered/', query_strings)
+        content = json.loads(response.content)
+
+        self.assertEqual(content['count'], 20)
+        self.assertEqual(content['page_size'], 15)
+        self.assertEqual(len(content['results']), 15)
+
+    def test_get_filtered_missing_parameters(self):
+        city_from, city_to, tomorrow, _ = self._prepare_cities_and_date()
+        RideFactory.create_batch(size=20,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': tomorrow, 'seats': 3})
+
+        query_strings = \
+            convert_city_to_dict(city_from, prefix='city_from_', city_name_key='city_from') | {'page': 1, 'seats': 2,
+                                                                                               'start_date': tomorrow.isoformat()}
+        response = self.client.get(f'/rides/get_filtered/', query_strings)
+        content = json.loads(response.content)
+
+        self.assertEqual(content, "Missing parameter 'city_to'")
+
+    def test_get_filtered_does_not_return_past_rides(self):
+        city_from, city_to, tomorrow, yesterday = self._prepare_cities_and_date()
+        RideFactory.create_batch(size=10,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': tomorrow, 'seats': 3})
+        RideFactory.create_batch(size=10,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': yesterday, 'seats': 3})
+        query_strings = \
+            convert_city_to_dict(city_from, prefix='city_from_', city_name_key='city_from') | convert_city_to_dict(
+                city_to, prefix='city_to_', city_name_key='city_to') | {'page': 1, 'seats': 2,
+                                                                        'start_date': tomorrow.isoformat()}
+        response = self.client.get(f'/rides/get_filtered/', query_strings)
+        content = json.loads(response.content)
+
+        self.assertEqual(content['count'], 10)
+
+    def test_get_filtered_does_not_return_not_matching_cities(self):
+        city_from, city_to, tomorrow, _ = self._prepare_cities_and_date()
+
+        RideFactory.create_batch(size=5,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': tomorrow, 'seats': 3})
+        RideFactory.create_batch(size=5,
+                                 **{'city_from': city_to, 'city_to': city_from, 'start_date': tomorrow, 'seats': 3})
+        query_strings = \
+            convert_city_to_dict(city_from, prefix='city_from_', city_name_key='city_from') | convert_city_to_dict(
+                city_to, prefix='city_to_', city_name_key='city_to') | {'page': 1, 'seats': 2,
+                                                                        'start_date': tomorrow.isoformat()}
+        response = self.client.get(f'/rides/get_filtered/', query_strings)
+        content = json.loads(response.content)
+
+        self.assertEqual(content['count'], 5)
+
+    def test_get_filtered_does_not_return_rides_with_smaller_seats_no(self):
+        city_from, city_to, tomorrow, _ = self._prepare_cities_and_date()
+
+        RideFactory.create_batch(size=5,
+                                 **{'city_from': city_from, 'city_to': city_to, 'start_date': tomorrow, 'seats': 3})
+        RideFactory.create_batch(size=5,
+                                 **{'city_from': city_to, 'city_to': city_from, 'start_date': tomorrow, 'seats': 5})
+        query_strings = \
+            convert_city_to_dict(city_from, prefix='city_from_', city_name_key='city_from') | convert_city_to_dict(
+                city_to, prefix='city_to_', city_name_key='city_to') | {'page': 1, 'seats': 3,
+                                                                        'start_date': tomorrow.isoformat()}
+        response = self.client.get(f'/rides/get_filtered/', query_strings)
+        content = json.loads(response.content)
+
+        self.assertEqual(content['count'], 5)
