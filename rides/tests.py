@@ -90,7 +90,7 @@ class RideViewSetTests(TestCase):
         city_from = CityFactory.create()
         city_to = CityFactory.create()
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-        yesterday = datetime.date.today() + datetime.timedelta(days=1)
+        yesterday = datetime.date.today() + datetime.timedelta(days=-1)
         return city_from, city_to, tomorrow, yesterday
 
     def test_returns_details_for_not_authorized_user(self):
@@ -373,4 +373,30 @@ class RideViewSetTests(TestCase):
         response = self.client.get(f'/rides/get_filtered/', query_strings)
         content = json.loads(response.content)
 
+        self.assertEqual(content['count'], 5)
+
+    def _get_user_rides_response(self, user_type: str) -> (status, dict):
+        RideFactory.create_batch(size=8)
+
+        response = self.client.get(f'/rides/user_rides/', {'user_type': user_type})
+        content = json.loads(response.content)
+        return response.status_code, content
+
+    def test_get_user_rides_as_driver_correctly(self):
+        user = UserFactory.create(email='fmajrox@gmail.com')
+        RideFactory.create_batch(size=5, **{'driver': user})
+
+        status_code, content = self._get_user_rides_response('driver')
+
+        self.assertEqual(status_code, status.HTTP_200_OK)
+        self.assertEqual(content['count'], 5)
+
+    def test_get_user_rides_as_passenger_correctly(self):
+        user = UserFactory.create(email='fmajrox@gmail.com')
+        RideWithPassengerFactory.create_batch(size=5,
+                                              **{'participation__user': user, 'participation__decision': 'accepted'})
+
+        status_code, content = self._get_user_rides_response('passenger')
+
+        self.assertEqual(status_code, status.HTTP_200_OK)
         self.assertEqual(content['count'], 5)
