@@ -69,3 +69,9 @@ class RecurrentRidePersonal(serializers.ModelSerializer):
 
     def get_duration(self, obj):
         return get_duration(obj)
+
+
+class SingleRideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ride
+        fields = ('ride_id', 'start_date')

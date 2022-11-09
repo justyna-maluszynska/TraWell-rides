@@ -8,10 +8,11 @@ from django_filters import rest_framework as filters
 
 from recurrent_rides.filters import RecurrentRideFilter
 from recurrent_rides.models import RecurrentRide
-from recurrent_rides.serializers import RecurrentRideSerializer, RecurrentRidePersonal
+from recurrent_rides.serializers import RecurrentRideSerializer, RecurrentRidePersonal, SingleRideSerializer
 from rides.models import Ride
 from utils.CustomPagination import CustomPagination
 from rides.utils.constants import ACTUAL_RIDES_ARGS
+from utils.generic_endpoints import get_paginated_queryset
 from utils.services import create_or_update_ride, update_partial_ride, cancel_ride
 from utils.utils import is_user_a_driver, filter_rides_by_cities
 from utils.validate_token import validate_token
@@ -24,6 +25,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         'update': RecurrentRideSerializer,
         'user_rides': RecurrentRidePersonal,
         'retrieve': RecurrentRideSerializer,
+        'single_rides': SingleRideSerializer,
     }
     queryset = RecurrentRide.objects.filter(**ACTUAL_RIDES_ARGS)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
@@ -33,16 +35,6 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action) or RecurrentRideSerializer
-
-    def get_paginated_queryset(self, queryset: QuerySet) -> JsonResponse:
-        page = self.paginate_queryset(queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(page, many=True)
-        return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
 
     def _create_new_recurrent_ride(self, request, user):
         data = request.data
@@ -63,10 +55,11 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         return response
 
     def _update_recurrent_ride(self, request, user) -> JsonResponse:
-        if is_user_a_driver(user, self.get_object()):
+        instance = self.get_object()
+        if is_user_a_driver(user, instance):
             if request.method == 'PATCH':
                 args = {
-                    "instance": self.get_object(),
+                    "instance": instance,
                     "serializer": self.get_serializer_class(),
                     "update_data": request.data,
                     "user": user
@@ -104,7 +97,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
 
         rides = filter_rides_by_cities(request, rides)
         filtered_rides = self.filter_queryset(rides)
-        return self.get_paginated_queryset(filtered_rides)
+        return get_paginated_queryset(self, filtered_rides)
 
     @validate_token
     @action(detail=False, methods=['get'])
@@ -117,3 +110,24 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         user = kwargs['user']
 
         return self._get_user_rides(request, user)
+
+    def _get_singular_rides(self, request, user):
+        instance = self.get_object()
+        if instance.driver == user:
+            params = ACTUAL_RIDES_ARGS
+            start_date = request.GET.get('single_start_date', None)
+            if start_date:
+                params['start_date__gt'] = start_date
+
+            rides = instance.single_rides.filter(**params)[:10]
+            serializer = self.get_serializer(rides, many=True)
+            return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
+        else:
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to get rides",
+                                safe=False)
+
+    @validate_token
+    @action(detail=True, methods=['get'])
+    def single_rides(self, request, *args, **kwargs):
+        user = kwargs['user']
+        return self._get_singular_rides(request, user)
