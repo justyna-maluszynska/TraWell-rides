@@ -12,6 +12,7 @@ from rides.models import Participation, Ride
 from rides.serializers import ParticipationSerializer
 from utils.CustomPagination import CustomPagination
 from rides.utils.constants import ACTUAL_RIDES_ARGS
+from utils.generic_endpoints import get_paginated_queryset
 from utils.utils import verify_request
 from utils.validate_token import validate_token
 
@@ -23,16 +24,6 @@ class RequestViewSet(viewsets.ModelViewSet):
     filterset_class = RequestFilter
     pagination_class = CustomPagination
     serializer_class = ParticipationSerializer
-
-    def _get_paginated_queryset(self, queryset: QuerySet) -> JsonResponse:
-        page = self.paginate_queryset(queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(page, many=True)
-        return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
 
     @validate_token
     def create(self, request, pk=None, *args, **kwargs):
@@ -132,7 +123,7 @@ class RequestViewSet(viewsets.ModelViewSet):
                                  filters=additional_filters)
         filtered_requests = self.filter_queryset(requests)
 
-        return self._get_paginated_queryset(filtered_requests)
+        return get_paginated_queryset(self, filtered_requests)
 
     @validate_token
     @action(detail=False, methods=['get'])

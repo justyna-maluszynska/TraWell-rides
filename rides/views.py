@@ -10,6 +10,7 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
 from rides.utils.constants import ACTUAL_RIDES_ARGS
+from utils.generic_endpoints import get_paginated_queryset
 from utils.selectors import city_object, rides_with_cities_nearby
 from utils.services import create_or_update_ride, update_partial_ride, update_whole_ride, cancel_ride
 from utils.utils import get_city_info, filter_rides_by_cities, is_user_a_driver
@@ -57,16 +58,6 @@ class RideViewSet(viewsets.ModelViewSet):
         else:
             return Ride.objects.none()
 
-    def _get_paginated_queryset(self, queryset: QuerySet) -> JsonResponse:
-        page = self.paginate_queryset(queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(page, many=True)
-        return JsonResponse(status=status.HTTP_200_OK, data=serializer.data, safe=False)
-
     @action(detail=False, methods=['get'])
     def get_filtered(self, request, *args, **kwargs):
         """
@@ -88,7 +79,7 @@ class RideViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Something went wrong: {e}", safe=False)
 
-        return self._get_paginated_queryset(filtered_queryset)
+        return get_paginated_queryset(self, filtered_queryset)
 
     def _create_new_ride(self, request, user):
         data = request.data
@@ -170,7 +161,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
         rides = filter_rides_by_cities(request, rides)
         filtered_rides = self.filter_queryset(rides)
-        return self._get_paginated_queryset(filtered_rides)
+        return get_paginated_queryset(self, filtered_rides)
 
     @validate_token
     @action(detail=False, methods=['get'])
@@ -186,7 +177,7 @@ class RideViewSet(viewsets.ModelViewSet):
 
     @validate_token
     @action(detail=True, methods=['get'])
-    def check_edition_permissions(self, request, pk=None, *args, **kwargs):
+    def check_edition_permissions(self, request, *args, **kwargs):
         user = kwargs['user']
 
         instance = self.get_object()
