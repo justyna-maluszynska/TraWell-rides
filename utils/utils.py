@@ -1,12 +1,13 @@
 import datetime
 from typing import List
 
+from django.db.models import F
 from geopy import distance
 
 from cities.models import City
-from rides.models import Ride, Participation, RecurrentRide
+from recurrent_rides.models import RecurrentRide
+from rides.models import Ride, Participation
 from users.models import User
-from vehicles.models import Vehicle
 
 MAX_DISTANCE = 10
 
@@ -66,20 +67,6 @@ def get_city_info(parameters: dict, which_city: str) -> dict:
             "lng": parameters[f'city_{which_city}_lng']}
 
 
-def find_city_object(city: dict) -> City | None:
-    """
-    Finds requested city in database and returns its object.
-
-    :param city: dictionary with city data
-    :return: found City object or None
-    """
-    try:
-        city_obj = City.objects.get(name=city['name'], state=city['state'], county=city['county'])
-        return city_obj
-    except City.DoesNotExist:
-        return None
-
-
 def find_near_cities(city: dict) -> List[int]:
     """
     Finds cities in a MAX_DISTANCE ray from requested city.
@@ -93,26 +80,14 @@ def find_near_cities(city: dict) -> List[int]:
     return near_cities_ids
 
 
-def get_user_vehicle(data, user) -> Vehicle or None:
-    vehicle = None
-    try:
-        vehicle_id = data.pop('vehicle')
-        if user.private:
-            vehicle = Vehicle.objects.get(vehicle_id=vehicle_id, user=user)
-        return vehicle
-    except KeyError or Vehicle.DoesNotExist:
-        return vehicle
-
-
 def filter_input_data(data: dict, expected_keys: list) -> dict:
     return {key: value for key, value in data.items() if key in expected_keys}
 
 
-def filter_by_decision(decision, rides_ids, user):
-    if decision in [Participation.Decision.PENDING, Participation.Decision.ACCEPTED, Participation.Decision.DECLINED]:
-        print(decision)
-        return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user, decision=decision)
-    return Participation.objects.filter(ride__ride_id__in=rides_ids, user=user)
+def filter_by_decision(decision, queryset):
+    if decision in [choice[0] for choice in Participation.Decision.choices]:
+        return queryset.filter(decision=decision)
+    return queryset
 
 
 def filter_rides_by_cities(request, queryset):
@@ -156,10 +131,10 @@ def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     return True, "OK"
 
 
-def validate_values(vehicle, duration, serializer, user) -> (bool, str):
+def validate_values(vehicle, duration, serializer, user, partial) -> (bool, str):
     if vehicle is None and user.private:
         return False, 'Vehicle parameter is invalid'
-    if duration is None:
+    if duration is None and not partial:
         return False, 'Duration parameter is invalid'
     if not serializer.is_valid():
         return False, serializer.errors
@@ -172,8 +147,23 @@ def is_user_a_driver(user: User, ride: Ride or RecurrentRide) -> bool:
 
 def verify_available_seats(instance, data):
     try:
-        if data['seats'] <= instance.seats - instance.available_seats:
+        if type(instance) is RecurrentRide:
+            if Ride.objects.annotate(seats_taken=F('seats') - F('available_seats')).filter(
+                    recurrent_ride=instance, seats_taken__gt=data['seats']).exists():
+                return False
             return True
-        return False
+
+        elif type(instance) is Ride:
+            if data['seats'] < instance.seats - instance.available_seats:
+                return False
+            return True
     except KeyError:
         return False
+
+
+def daterange_filter(queryset, name: str, value: datetime):
+    first_parameter = '__'.join([name, 'gte'])
+    second_parameter = '__'.join([name, 'lte'])
+    return queryset.filter(**{first_parameter: value,
+                              second_parameter: datetime.datetime.combine(value.date() + datetime.timedelta(1),
+                                                                          datetime.time.max)})

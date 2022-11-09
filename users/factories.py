@@ -15,7 +15,7 @@ class UserFactory(factory.django.DjangoModelFactory):
 
     first_name = factory.Faker('first_name')
     last_name = factory.Faker('last_name')
-    email = factory.Faker('email')
+    email = factory.Sequence(lambda n: f'first_name-{n}@gmail.com')
     avg_rate = factory.Faker('pydecimal', left_digits=1, right_digits=2, min_value=1, max_value=5)
     private = factory.Faker('pybool')
     avatar = factory.Faker('random_element', elements=urls)

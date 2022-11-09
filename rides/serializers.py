@@ -1,36 +1,17 @@
+from collections import OrderedDict
+
 from rest_framework import serializers
 
 from cities.models import City
-from rides.models import Ride, Participation, Coordinate, RecurrentRide
-from rides.utils.constants import ACTUAL_RIDES_ARGS
-from users.models import User
-from vehicles.models import Vehicle
-
-
-class CityNestedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = City
-        fields = ('city_id', 'name', 'county', 'state', 'lat', 'lng')
-
-    def create(self, validated_data):
-        instance, _ = City.objects.get_or_create(**validated_data)
-        return instance
-
-
-class VehicleNestedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Vehicle
-        fields = ('vehicle_id', 'make', 'model', 'color')
-
-
-class UserNestedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('user_id', 'first_name', 'last_name', 'avg_rate', 'avatar', 'private')
+from cities.serializers import CitySerializer
+from recurrent_rides.models import RecurrentRide
+from rides.models import Ride, Participation, Coordinate
+from users.serializers import UserSerializer
+from vehicles.serializers import VehicleSerializer
 
 
 class ParticipationNestedSerializer(serializers.ModelSerializer):
-    user = UserNestedSerializer(many=False)
+    user = UserSerializer(many=False)
 
     class Meta:
         model = Participation
@@ -44,10 +25,10 @@ class CoordinatesNestedSerializer(serializers.ModelSerializer):
 
 
 class RidePersonal(serializers.ModelSerializer):
-    city_from = CityNestedSerializer(many=False)
-    city_to = CityNestedSerializer(many=False)
+    city_from = CitySerializer(many=False)
+    city_to = CitySerializer(many=False)
     duration = serializers.SerializerMethodField()
-    driver = UserNestedSerializer(many=False)
+    driver = UserSerializer(many=False)
     can_driver_edit = serializers.ReadOnlyField()
 
     class Meta:
@@ -61,28 +42,10 @@ class RidePersonal(serializers.ModelSerializer):
         return get_duration(obj)
 
 
-class RecurrentRidePersonal(serializers.ModelSerializer):
-    city_from = CityNestedSerializer(many=False)
-    city_to = CityNestedSerializer(many=False)
-    duration = serializers.SerializerMethodField()
-    driver = UserNestedSerializer(many=False)
-    can_driver_edit = True
-
-    class Meta:
-        model = Ride
-        fields = (
-            'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'duration', 'can_driver_edit',
-            'driver')
-        extra_kwargs = {'area_from': {'required': False}, 'area_to': {'required': False}}
-
-    def get_duration(self, obj):
-        return get_duration(obj)
-
-
 class RideListSerializer(serializers.ModelSerializer):
-    city_from = CityNestedSerializer(many=False)
-    city_to = CityNestedSerializer(many=False)
-    driver = UserNestedSerializer(many=False)
+    city_from = CitySerializer(many=False)
+    city_to = CitySerializer(many=False)
+    driver = UserSerializer(many=False)
     duration = serializers.SerializerMethodField()
 
     class Meta:
@@ -105,10 +68,10 @@ class ParticipationSerializer(serializers.ModelSerializer):
 
 
 class RideSerializer(serializers.ModelSerializer):
-    city_from = CityNestedSerializer(many=False)
-    city_to = CityNestedSerializer(many=False)
-    driver = UserNestedSerializer(many=False, required=False)
-    vehicle = VehicleNestedSerializer(many=False, required=False)
+    city_from = CitySerializer(many=False)
+    city_to = CitySerializer(many=False)
+    driver = UserSerializer(many=False, required=False)
+    vehicle = VehicleSerializer(many=False, required=False)
     duration = serializers.SerializerMethodField()
     passengers = ParticipationNestedSerializer(source='participation_set', many=True, required=False)
     coordinates = CoordinatesNestedSerializer(many=True)
@@ -122,19 +85,19 @@ class RideSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data, **kwargs):
         requested_city_from = validated_data.get('city_from', instance.city_from)
-        if type(requested_city_from) is dict:
+        if type(requested_city_from) is OrderedDict:
             city_from, _ = City.objects.get_or_create(**requested_city_from)
             instance.city_from = city_from
 
         requested_city_to = validated_data.get('city_to', instance.city_to)
-        if type(requested_city_to) is dict:
+        if type(requested_city_to) is OrderedDict:
             city_to, _ = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
 
         coordinates = validated_data.get('coordinates', instance.coordinates.all())
         new_coordinates = []
         for coordinate in coordinates:
-            if type(coordinate) is dict:
+            if type(coordinate) is OrderedDict:
                 new_coordinates.append(
                     Coordinate.objects.get_or_create(ride=instance, lat=coordinate['lat'], lng=coordinate['lng'],
                                                      defaults={'sequence_no': coordinate['sequence_no']})[0])
@@ -169,48 +132,6 @@ class RideSerializer(serializers.ModelSerializer):
             Coordinate.objects.create(ride=ride, **coordinate)
 
         return ride
-
-    def get_duration(self, obj):
-        return get_duration(obj)
-
-
-class RecurrentRideSerializer(serializers.ModelSerializer):
-    city_from = CityNestedSerializer(many=False)
-    city_to = CityNestedSerializer(many=False)
-    driver = UserNestedSerializer(many=False, required=False)
-    vehicle = VehicleNestedSerializer(many=False, required=False)
-    duration = serializers.SerializerMethodField()
-
-    class Meta:
-        model = RecurrentRide
-        fields = (
-            'ride_id', 'city_from', 'city_to', 'area_from', 'area_to', 'start_date', 'end_date', 'frequency_type',
-            'frequence', 'occurrences', 'price', 'seats', 'automatic_confirm', 'description', 'driver', 'vehicle',
-            'duration')
-        depth = 1
-
-    def create(self, validated_data, **kwargs):
-        driver, vehicle, duration, city_from, city_to = get_ride_data(validated_data, self.context)
-
-        recurrent_ride = RecurrentRide(driver=driver, vehicle=vehicle, city_from=city_from, city_to=city_to,
-                                       duration=duration, **validated_data)
-        recurrent_ride.save()
-
-        return recurrent_ride
-
-    def update(self, instance, validated_data, **kwargs):
-        vehicle = self.context.get('vehicle', instance.vehicle)
-        automatic_confirm = validated_data.get('automatic_confirm', instance.automatic_confirm)
-        description = validated_data.get('description', instance.description)
-
-        update_data = {'vehicle': vehicle, 'automatic_confirm': automatic_confirm, 'description': description}
-        update_ride(instance, update_data)
-
-        single_rides = Ride.objects.filter(recurrent_ride=instance, **ACTUAL_RIDES_ARGS)
-        for ride in single_rides:
-            update_ride(ride, update_data)
-
-        return instance
 
     def get_duration(self, obj):
         return get_duration(obj)
