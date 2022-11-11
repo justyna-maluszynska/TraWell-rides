@@ -91,8 +91,7 @@ class RequestViewSet(viewsets.ModelViewSet):
             except KeyError as e:
                 return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
         else:
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete request",
-                                safe=False)
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed", safe=False)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
@@ -109,8 +108,8 @@ class RequestViewSet(viewsets.ModelViewSet):
             if instance.decision != Participation.Decision.CANCELLED:
                 instance.decision = Participation.Decision.CANCELLED
                 instance.save()
-                print('hej')
-                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
+
+                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
                                 safe=False)
