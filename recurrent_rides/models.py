@@ -68,9 +68,12 @@ def create_or_update_single_rides(recurrent_ride: RecurrentRide) -> None:
     elif frequency_type in RecurrentRide.FrequencyType.DAILY:
         dates = pd.date_range(start=start_date, end=end_date, freq=f'{frequence}D')
     elif frequency_type in RecurrentRide.FrequencyType.WEEKLY:
-        dates = DatetimeIndex()
-        for occurrence in occurrences:
-            dates.union(pd.date_range(start=start_date, end=end_date, freq=f'{frequence}W-{occurrence}'))
+        dates_list = [pd.date_range(start=start_date, end=end_date, freq=f'{frequence}W-{occurrence}') for occurrence in
+                      occurrences]
+        if dates_list:
+            dates = dates_list[0].union_many(dates_list[1:])
+        else:
+            dates = DatetimeIndex([])
     elif frequency_type in RecurrentRide.FrequencyType.MONTHLY:
         dates = pd.date_range(start=start_date, end=end_date, freq=f'{frequence}M')
 
