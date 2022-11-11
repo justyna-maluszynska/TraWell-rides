@@ -61,10 +61,11 @@ class RideListSerializer(serializers.ModelSerializer):
 
 class ParticipationSerializer(serializers.ModelSerializer):
     ride = RideListSerializer(many=False)
+    user = UserSerializer()
 
     class Meta:
         model = Participation
-        fields = ('id', 'ride', 'decision', 'reserved_seats')
+        fields = ('id', 'ride', 'decision', 'reserved_seats', 'user')
 
 
 class RideSerializer(serializers.ModelSerializer):
