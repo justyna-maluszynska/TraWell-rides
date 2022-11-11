@@ -95,7 +95,7 @@ class RequestViewSetTests(TestCase):
         self.assertEqual(content, "Ride 100 not found")
 
     def _create_request(self):
-        participation = ParticipationFactory(user=self.user)
+        participation = ParticipationFactory(user=self.user, decision='pending')
         return participation
 
     def test_cancel_request_correctly(self):
@@ -131,3 +131,38 @@ class RequestViewSetTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(content, 'Request is already cancelled')
+
+    def test_decision_correctly_changed(self):
+        decisions = ['accepted', 'declined']
+        for decision in decisions:
+            participation = ParticipationFactory(decision='pending', ride=self.user_rides[0])
+            decision_data = {'decision': decision}
+
+            response = self.client.post(f'/requests/{participation.id}/decision/', data=decision_data, format='json')
+            content = json.loads(response.content)
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(content, f'Request successfully changed to {decision}')
+
+            participation_obj = Participation.objects.get(id=participation.id)
+            self.assertEqual(participation_obj.decision, decision)
+
+    def test_cannot_change_decision_if_not_pending(self):
+        participation = ParticipationFactory(decision='accepted', ride=self.user_rides[0])
+        decision_data = {'decision': 'declined'}
+
+        response = self.client.post(f'/requests/{participation.id}/decision/', data=decision_data, format='json')
+        content = json.loads(response.content)
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(content, f'Request do not have pending status')
+
+    def test_cannot_change_decision_if_user_not_a_driver(self):
+        participation = self._create_request()
+        decision_data = {'decision': 'accepted'}
+
+        response = self.client.post(f'/requests/{participation.id}/decision/', data=decision_data, format='json')
+        content = json.loads(response.content)
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(content, f'User not allowed')

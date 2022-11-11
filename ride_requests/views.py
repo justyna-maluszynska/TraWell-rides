@@ -91,8 +91,7 @@ class RequestViewSet(viewsets.ModelViewSet):
             except KeyError as e:
                 return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
         else:
-            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to delete request",
-                                safe=False)
+            return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed", safe=False)
 
     @validate_token
     def destroy(self, request, *args, **kwargs):
