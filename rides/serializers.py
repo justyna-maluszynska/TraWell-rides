@@ -10,12 +10,19 @@ from users.serializers import UserSerializer
 from vehicles.serializers import VehicleSerializer
 
 
+class ParticipationListSerializer(serializers.ListSerializer):
+    def to_representation(self, data):
+        data = data.filter(decision='accepted')
+        return super(ParticipationListSerializer, self).to_representation(data)
+
+
 class ParticipationNestedSerializer(serializers.ModelSerializer):
     user = UserSerializer(many=False)
 
     class Meta:
         model = Participation
         fields = ('id', 'user', 'decision')
+        list_serializer_class = ParticipationListSerializer
 
 
 class CoordinatesNestedSerializer(serializers.ModelSerializer):
