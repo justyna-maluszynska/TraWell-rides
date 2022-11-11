@@ -1,4 +1,3 @@
-from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
