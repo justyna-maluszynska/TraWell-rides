@@ -166,3 +166,36 @@ class RequestViewSetTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(content, f'User not allowed')
+
+    def test_get_my_requests(self):
+        ParticipationFactory.create_batch(5, user=self.user)
+        ParticipationFactory.create_batch(10)
+
+        response = self.client.get(f'/requests/my_requests/', format='json')
+        content = json.loads(response.content)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(content['count'], 5)
+
+    def test_get_my_requests_filtered(self):
+        requests = ParticipationFactory.create_batch(5, user=self.user)
+        ParticipationFactory.create_batch(10)
+
+        cancelled_requests = [request for request in requests if request.decision == 'cancelled']
+
+        response = self.client.get(f'/requests/my_requests/', data={'decision': 'cancelled'}, format='json')
+        content = json.loads(response.content)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(content['count'], len(cancelled_requests))
+
+    def test_get_pending_requests(self):
+        ParticipationFactory.create_batch(5, user=self.user)
+        requests = ParticipationFactory.create_batch(3, ride=self.user_rides[0])
+        pending_requests = [request for request in requests if request.decision == 'pending']
+
+        response = self.client.get(f'/requests/pending_requests/', format='json')
+        content = json.loads(response.content)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(content['count'], len(pending_requests))
