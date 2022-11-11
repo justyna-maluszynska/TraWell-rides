@@ -19,12 +19,11 @@ class RequestFilter(filters.FilterSet):
 
 
 class RequestOrderFilter(OrderingFilter):
-    allowed_custom_filters = ['price', 'start_date', 'duration', 'available_seats']
+    allowed_custom_filters = ['start_date', 'driver_rate', 'passenger_rate']
     fields_related = {
         'start_date': 'ride__start_date',
-        'duration': 'ride__duration',
-        'available_seats': 'ride__available_seats',
-        'price': 'ride__price'
+        'driver_rate': 'ride__driver__avg_rate',
+        'passenger_rate': 'user__avg_rate'
     }
 
     def get_ordering(self, request, queryset, view):
