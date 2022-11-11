@@ -109,8 +109,8 @@ class RequestViewSet(viewsets.ModelViewSet):
             if instance.decision != Participation.Decision.CANCELLED:
                 instance.decision = Participation.Decision.CANCELLED
                 instance.save()
-                print('hej')
-                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled ', safe=False)
+
+                return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
                                 safe=False)
