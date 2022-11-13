@@ -68,7 +68,7 @@ class RideListSerializer(serializers.ModelSerializer):
 
 class ParticipationSerializer(serializers.ModelSerializer):
     ride = RideListSerializer(many=False)
-    user = UserSerializer()
+    user = UserSerializer(many=False)
 
     class Meta:
         model = Participation

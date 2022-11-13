@@ -66,6 +66,8 @@ MIDDLEWARE = [
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = ['*']
 
+CELERY_BROKER_URL = 'amqp://root:root@rabbitmq:5672/'
+
 ROOT_URLCONF = 'rides_microservice.urls'
 
 TEMPLATES = [
