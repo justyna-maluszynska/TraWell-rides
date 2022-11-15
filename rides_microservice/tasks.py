@@ -1,12 +1,11 @@
 from __future__ import absolute_import, unicode_literals
 
 from celery import shared_task
+from rides_microservice.celery import app
 
-from rides_microservice.celery import app, queue_notify
 
-
-@shared_task(name='notification')
-def publish_message(message, title):
+@shared_task(name='data_messaging')
+def publish_message(message, title, queue, routing_key):
     body = {
         'title': title,
         'message': message
@@ -15,6 +14,6 @@ def publish_message(message, title):
         producer.publish(
             body,
             exchange='trawell_exchange',
-            queue=queue_notify,
-            routing_key='notify',
+            queue=queue,
+            routing_key=routing_key,
         )

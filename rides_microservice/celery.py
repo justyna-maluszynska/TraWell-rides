@@ -36,24 +36,37 @@ with app.pool.acquire(block=True) as conn:
         channel=conn,
         message_ttl=600,
         queue_arguments={
-            'x-queue-type': 'classic'
+            'x-queue_rides-type': 'classic'
         },
         durable=True
     )
     queue_notify.declare()
 
-    queue = kombu.Queue(
+    queue_reviews = kombu.Queue(
+        name='reviews',
+        exchange=exchange,
+        routing_key='review',
+        channel=conn,
+        message_ttl=600,
+        queue_arguments={
+            'x-queue_rides-type': 'classic'
+        },
+        durable=True
+    )
+    queue_reviews.declare()
+
+    queue_rides = kombu.Queue(
         name='rides',
         exchange=exchange,
         routing_key='send',
         channel=conn,
         message_ttl=600,
         queue_arguments={
-            'x-queue-type': 'classic'
+            'x-queue_rides-type': 'classic'
         },
         durable=True
     )
-    queue.declare()
+    queue_rides.declare()
 
 
 # setting consumer
@@ -61,7 +74,7 @@ class MyConsumerStep(bootsteps.ConsumerStep):
 
     def get_consumers(self, channel):
         return [kombu.Consumer(channel,
-                               queues=[queue],
+                               queues=[queue_rides],
                                callbacks=[self.handle_message],
                                accept=['json'])]
 
@@ -122,7 +135,7 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                 new_vehicle.save()
 
         if body['title'] == 'vehicles.patch':
-            print('Message received on vehicles queue\n patch proly should not be implemented')
+            print('Message received on vehicles queue_rides\n patch proly should not be implemented')
 
         if body['title'] == 'vehicles.delete':
             try:

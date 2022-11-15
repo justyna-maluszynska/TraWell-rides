@@ -16,6 +16,7 @@ from rides.utils.constants import ACTUAL_RIDES_ARGS
 from utils.generic_endpoints import get_paginated_queryset
 from utils.utils import verify_request
 from utils.validate_token import validate_token
+from rides_microservice.celery import queue_notify, queue_reviews
 
 
 # Create your views here.
@@ -56,7 +57,8 @@ class RequestViewSet(viewsets.ModelViewSet):
 
             participation = Participation.objects.create(ride=ride, user=user, decision=decision,
                                                          reserved_seats=seats_no)
-            tasks.publish_message(ParticipationSerializer(participation).data, 'participation')
+            tasks.publish_message(ParticipationSerializer(participation).data, 'participation', queue_notify, 'notify')
+            tasks.publish_message(ParticipationSerializer(participation).data, 'participation', queue_reviews, 'review')
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
@@ -85,7 +87,11 @@ class RequestViewSet(viewsets.ModelViewSet):
                         instance.decision = decision
                         instance.save()
 
-                        tasks.publish_message(ParticipationSerializer(instance).data, 'participation')
+                        tasks.publish_message(ParticipationSerializer(instance).data, 'participation',
+                                              queue_notify, 'notify')
+                        tasks.publish_message(ParticipationSerializer(instance).data, 'participation',
+                                              queue_reviews, 'review')
+
                         return JsonResponse(status=status.HTTP_200_OK,
                                             data=f'Request successfully changed to {decision}', safe=False)
                     else:
@@ -114,7 +120,11 @@ class RequestViewSet(viewsets.ModelViewSet):
                 instance.decision = Participation.Decision.CANCELLED
                 instance.save()
 
-                tasks.publish_message(ParticipationSerializer(instance).data, 'participation')
+                tasks.publish_message(ParticipationSerializer(instance).data, 'participation', queue_notify,
+                                      'notify')
+                tasks.publish_message(ParticipationSerializer(instance).data, 'participation', queue_reviews,
+                                      'review')
+
                 return JsonResponse(status=status.HTTP_200_OK, data=f'Request successfully cancelled', safe=False)
 
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data=f"Request is already cancelled",
