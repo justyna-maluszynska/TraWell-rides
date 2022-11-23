@@ -2,7 +2,10 @@ import random
 
 from cities.models import City
 from rides.factories import RideWithPassengerFactory
+from rides_microservice import tasks
+from rides_microservice.celery import queue_notify, queue_reviews
 from users.models import User
+from rides.serializers import RideSerializer
 
 
 def get_list_without_index(list, index):
@@ -23,4 +26,7 @@ def create(amount):
             vehicle = driver.vehicles.all()[0]
             seats = random.randint(1, 9)
 
-            RideWithPassengerFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats)
+            ride = RideWithPassengerFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats)
+
+            tasks.publish_message(RideSerializer(ride).data, 'rides.create', queue_notify, 'notify')
+            tasks.publish_message(RideSerializer(ride).data, 'rides.create', queue_reviews, 'review')
