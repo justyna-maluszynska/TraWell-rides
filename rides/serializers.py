@@ -82,6 +82,22 @@ class RideForHistorySerializer(serializers.ModelSerializer):
         depth = 2
 
 
+class RideForReviewsSerializer(serializers.ModelSerializer):
+    city_from = serializers.SerializerMethodField()
+    city_to = serializers.SerializerMethodField()
+    passengers = ParticipationNestedSerializer(source='participation_set', many=True, required=False)
+
+    class Meta:
+        model = Ride
+        fields = ('ride_id', 'city_from', 'city_to', 'start_date', 'driver', 'passengers')
+
+    def get_city_from(self, obj):
+        return obj.city_from.name
+
+    def get_city_to(self, obj):
+        return obj.city_to.name
+
+
 class RideSerializer(serializers.ModelSerializer):
     city_from = CitySerializer(many=False)
     city_to = CitySerializer(many=False)
