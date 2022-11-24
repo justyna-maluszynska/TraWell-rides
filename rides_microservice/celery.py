@@ -5,7 +5,6 @@ import os
 import django
 import kombu
 from celery import Celery, bootsteps
-from kombu import Queue
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'rides_microservice.settings')
 django.setup()
@@ -21,17 +20,17 @@ app.autodiscover_tasks()
 
 # setting publisher
 with app.pool.acquire(block=True) as conn:
-    exchange = kombu.Exchange(
+    exchange_main = kombu.Exchange(
         name='trawell_exchange',
         type='direct',
         durable=True,
         channel=conn,
     )
-    exchange.declare()
+    exchange_main.declare()
 
     queue_notify = kombu.Queue(
         name='notifications',
-        exchange=exchange,
+        exchange=exchange_main,
         routing_key='notify',
         channel=conn,
         message_ttl=600,
@@ -44,7 +43,7 @@ with app.pool.acquire(block=True) as conn:
 
     queue_reviews = kombu.Queue(
         name='reviews',
-        exchange=exchange,
+        exchange=exchange_main,
         routing_key='review',
         channel=conn,
         message_ttl=600,
@@ -57,7 +56,7 @@ with app.pool.acquire(block=True) as conn:
 
     queue_rides = kombu.Queue(
         name='rides',
-        exchange=exchange,
+        exchange=exchange_main,
         routing_key='send',
         channel=conn,
         message_ttl=600,
@@ -67,6 +66,20 @@ with app.pool.acquire(block=True) as conn:
         durable=True
     )
     queue_rides.declare()
+
+    queue_history = kombu.Queue(
+        name='history',
+        exchange=exchange_main,
+        routing_key='history',
+        channel=conn,
+        x_message_ttl=600,
+        queue_arguments={
+            'x-queue_rides-type': 'classic',
+            'x-message-ttl': 600000,
+        },
+        durable=True
+    )
+    queue_history.declare()
 
 
 # setting consumer
@@ -143,7 +156,8 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                 vehicle.delete()
             except Vehicle.DoesNotExist:
                 pass
-
+        if body['title'] == 'ride.archive':
+            print('hejo, doszlo')
         message.ack()
 
 
