@@ -10,6 +10,8 @@ from users.models import User
 from utils.selectors import user_vehicle
 from utils.utils import validate_values, filter_input_data, get_duration, verify_available_seats
 from vehicles.models import Vehicle
+from rides_microservice.celery import queue_notify, queue_reviews
+from rides_microservice import tasks
 
 
 def extract_values(data: dict, expected_keys: list, user: User) -> (dict, Vehicle, datetime.timedelta):
@@ -38,7 +40,17 @@ def create_or_update_ride(data: dict, keys: list, user: User, serializer: RideSe
     if not is_valid:
         return status.HTTP_400_BAD_REQUEST, message
 
-    serializer.save()
+    ride = serializer.save()
+
+    if type(ride) is RecurrentRide:
+        rides = Ride.objects.filter(recurrent_ride=ride).all()
+        serializer = RideSerializer(instance=rides, many=True)
+        tasks.publish_message(serializer.data, 'rides.create.many', queue_notify, 'notify')
+        tasks.publish_message(serializer.data, 'rides.create.many', queue_reviews, 'review')
+    else:
+        tasks.publish_message(serializer.data, 'rides.create', queue_notify, 'notify')
+        tasks.publish_message(serializer.data, 'rides.create', queue_reviews, 'review')
+
     return status.HTTP_200_OK, serializer.data
 
 
@@ -65,3 +77,16 @@ def update_whole_ride(instance, serializer, update_data, user):
 def cancel_ride(ride: Ride or RecurrentRide):
     ride.is_cancelled = True
     ride.save()
+
+    if type(ride) is RecurrentRide:
+        rides = Ride.objects.filter(recurrent_ride=ride).all()
+        serializer = RideSerializer(instance=rides, many=True)
+
+        tasks.publish_message(serializer.data, 'rides.cancel.many', queue_notify, 'notify')
+        tasks.publish_message(serializer.data, 'rides.cancel.many', queue_reviews, 'review')
+
+    else:
+        serializer = RideSerializer(ride)
+        tasks.publish_message(serializer.data, 'rides.cancel', queue_notify, 'notify')
+        tasks.publish_message(serializer.data, 'rides.cancel', queue_reviews, 'review')
+

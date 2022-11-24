@@ -16,6 +16,7 @@ from utils.services import create_or_update_ride, update_partial_ride, update_wh
 from utils.utils import get_city_info, filter_rides_by_cities, is_user_a_driver
 from utils.CustomPagination import CustomPagination
 from utils.validate_token import validate_token
+from rides_microservice import tasks
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -172,7 +173,6 @@ class RideViewSet(viewsets.ModelViewSet):
         :return: List of user's rides.
         """
         user = kwargs['user']
-
         return self._get_user_rides(request, user)
 
     @validate_token
@@ -183,7 +183,6 @@ class RideViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.driver == user:
             full_permission = not self._has_ride_passengers()
-            print(full_permission)
             return JsonResponse(status=status.HTTP_200_OK, data={'full_permission': full_permission}, safe=False)
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
