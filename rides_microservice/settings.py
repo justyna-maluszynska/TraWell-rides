@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 
 import environ
-import kombu
+from celery.schedules import solar, crontab
 
 env = environ.Env()
 environ.Env.read_env()
@@ -73,12 +73,12 @@ CELERY_TIMEZONE = 'Europe/Warsaw'
 CELERY_BEAT_SCHEDULE = {
     'rides_archive': {
         'task': 'rides_microservice.tasks.archive',
-        'schedule': 15,
+        'schedule': crontab(minute='*/30'),
         'options': {'queue': 'archive_queue'}
     },
     'rides_delete': {
         'task': 'rides_microservice.tasks.clear_from_archived',
-        'schedule': 30,
+        'schedule': solar('sunrise', 17.06031, 51.10774),
         'options': {'queue': 'archive_queue'}
     }
 }

@@ -183,7 +183,6 @@ class RideViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.driver == user:
             full_permission = not self._has_ride_passengers()
-            print(full_permission)
             return JsonResponse(status=status.HTTP_200_OK, data={'full_permission': full_permission}, safe=False)
         else:
             return JsonResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED, data="User not allowed to update a ride",
