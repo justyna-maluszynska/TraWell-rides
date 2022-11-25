@@ -37,7 +37,7 @@ class ParticipationFactory(factory.django.DjangoModelFactory):
         model = models.Participation
 
     ride = factory.SubFactory(RideFactory)
-    user = random.choice(User.objects.all())
+    user = factory.Faker('random_choice', elements=User.objects.all())
     decision = factory.fuzzy.FuzzyChoice(['accepted', 'pending', 'cancelled', 'declined'])
     reserved_seats = factory.fuzzy.FuzzyChoice([1, 2, 3])
 
