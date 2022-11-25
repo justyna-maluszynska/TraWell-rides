@@ -118,7 +118,7 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                     email=body['message']['user']["email"],
                     avatar=body['message']['user']['avatar'],
                     private=True if body['message']['user']['user_type'] == 'private' else False,
-                    avg_rate=body['message']['avg_rate']
+                    avg_rate=body['message']['user']['avg_rate']
                 )
                 new_user.save()
 
