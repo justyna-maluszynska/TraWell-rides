@@ -19,8 +19,9 @@ How to run scripts
 3.Run 'docker ps' and copy the container id of trawell-rides-web image from the list
 4.Run 'docker exec -it <container_id> bash'
 5.After bash activation run 'python manage.py shell'
-6.After shell activation run 'import scripts.create_data'
-7.Wait 1 minute and voila, enjoy
+6.After shell activation run 'import scripts.create_manual_data'
+7.After that run 'import scripts.create_data'
+8.Wait 1 minute and voila, enjoy
 
 How to delete all data from database
 

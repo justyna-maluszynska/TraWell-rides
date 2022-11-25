@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import scripts.create_cities
 from cities.models import City
 from recurrent_rides.models import RecurrentRide
 from rides.models import Ride, Participation
@@ -127,3 +128,9 @@ def create_manual_recurrent_rides(recurrent_rides):
         serializer = RideSerializer(instance=rides, many=True)
         tasks.publish_message(serializer.data, 'rides.create.many', queue_notify, 'notify')
         tasks.publish_message(serializer.data, 'rides.create.many', queue_reviews, 'review')
+
+
+scripts.create_cities.create()
+create_manual_rides(rides)
+create_manual_participations(participations)
+create_manual_recurrent_rides(recurrent_rides)
