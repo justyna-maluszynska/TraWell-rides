@@ -23,7 +23,6 @@ rides = [
      'automatic_confirm': False,
      'description': 'lalala',
      'driver_email': 'anna.nowak@wp.pl',
-     'vehicle_id': 1,   #make sure that the vehicle belongs to driver
      'is_cancelled': False,
      'recurrent_ride': None}
 ]
@@ -53,7 +52,6 @@ recurrent_rides = [
      'automatic_confirm': False,
      'description': 'lalala',
      'driver_email': 'anna.nowak@wp.pl',
-     'vehicle_id': 1,   #make sure that the vehicle belongs to driver
      'is_cancelled': False}
 ]
 
@@ -63,7 +61,11 @@ def create_manual_rides(rides):
         city_from = City.objects.get(city_id=ride['city_from'])
         city_to = City.objects.get(city_id=ride['city_to'])
         driver = User.objects.get(email=ride['email'])
-        vehicle = Vehicle.objects.get(vehicle_id=ride['vehicle_id'])
+        vehicles = Vehicle.objects.filter(user=driver)
+        if len(vehicles) > 0:
+            vehicle = vehicles[0]
+        else:
+            vehicle = None
         new_ride = Ride.objects.create(city_from=city_from,
                                        city_to=city_to,
                                        area_from=ride['area_from'],
@@ -104,7 +106,11 @@ def create_manual_recurrent_rides(recurrent_rides):
         city_from = City.objects.get(city_id=ride['city_from'])
         city_to = City.objects.get(city_id=ride['city_to'])
         driver = User.objects.get(email=ride['email'])
-        vehicle = Vehicle.objects.get(vehicle_id=ride['vehicle_id'])
+        vehicles = Vehicle.objects.filter(user=driver)
+        if len(vehicles) > 0:
+            vehicle = vehicles[0]
+        else:
+            vehicle = None
         new_ride = RecurrentRide.objects.create(city_from=city_from,
                                                 city_to=city_to,
                                                 area_from=ride['area_from'],
