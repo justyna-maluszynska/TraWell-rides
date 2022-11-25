@@ -1,3 +1,5 @@
+import random
+
 import factory.django
 import pytz
 from factory import fuzzy
@@ -6,6 +8,7 @@ from cities.factories import CityFactory
 from users.factories import UserFactory
 from vehicles.factories import VehicleFactory
 from . import models
+from users.models import User
 
 
 class RideFactory(factory.django.DjangoModelFactory):
@@ -34,7 +37,7 @@ class ParticipationFactory(factory.django.DjangoModelFactory):
         model = models.Participation
 
     ride = factory.SubFactory(RideFactory)
-    user = factory.SubFactory(UserFactory)
+    user = random.choice(User.objects.all())
     decision = factory.fuzzy.FuzzyChoice(['accepted', 'pending', 'cancelled', 'declined'])
     reserved_seats = factory.fuzzy.FuzzyChoice([1, 2, 3])
 
