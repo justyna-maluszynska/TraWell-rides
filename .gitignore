@@ -1,5 +1,6 @@
 venv/
 .idea/
+postgres_data
 
 # Byte-compiled / optimized / DLL files
 users/__pycache__/

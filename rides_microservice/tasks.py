@@ -22,7 +22,6 @@ def publish_message(message, title, queue, routing_key):
             routing_key=routing_key,
         )
 
-
 @app.task(queue='archive_queue')
 def archive():
     current_time = datetime.datetime.now()

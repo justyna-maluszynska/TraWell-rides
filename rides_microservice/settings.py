@@ -68,6 +68,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = ['*']
 
 CELERY_BROKER_URL = 'amqp://root:root@rabbitmq:5672/'
+
 CELERY_TIMEZONE = 'Europe/Warsaw'
 
 CELERY_BEAT_SCHEDULE = {

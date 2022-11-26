@@ -5,6 +5,7 @@ import os
 import django
 import kombu
 from celery import Celery, bootsteps
+from kombu import Queue
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'rides_microservice.settings')
 django.setup()
@@ -26,6 +27,7 @@ with app.pool.acquire(block=True) as conn:
         durable=True,
         channel=conn,
     )
+
     exchange_main.declare()
 
     queue_notify = kombu.Queue(
@@ -131,7 +133,7 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                     email=body['message']['user']["email"],
                     avatar=body['message']['user']['avatar'],
                     private=True if body['message']['user']['user_type'] == 'private' else False,
-                    avg_rate=body['message']['avg_rate']
+                    avg_rate=body['message']['user']['avg_rate']
                 )
                 new_user.save()
 
@@ -156,6 +158,7 @@ class MyConsumerStep(bootsteps.ConsumerStep):
                 vehicle.delete()
             except Vehicle.DoesNotExist:
                 pass
+
         if body['title'] == 'ride.archive':
             print('hejo, doszlo')
         message.ack()
