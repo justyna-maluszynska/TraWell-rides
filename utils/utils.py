@@ -121,7 +121,7 @@ def verify_request(user: User, ride: Ride, seats: int) -> (bool, str):
     if ride.passengers.filter(user_id=user.user_id, passenger__decision__in=[Participation.Decision.PENDING,
                                                                              Participation.Decision.ACCEPTED]):
         return False, "User is already in ride or waiting for decision"
-    if 1 <= seats >= ride.available_seats:
+    if 0 < seats >= ride.available_seats:
         return False, "There are not enough seats"
 
     current_date = datetime.datetime.now(datetime.timezone.utc)
