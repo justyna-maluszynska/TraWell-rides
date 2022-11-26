@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 
 import environ
+from celery.schedules import solar, crontab
 
 env = environ.Env()
 environ.Env.read_env()
@@ -67,6 +68,21 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = ['*']
 
 CELERY_BROKER_URL = 'amqp://root:root@rabbitmq:5672/'
+
+CELERY_TIMEZONE = 'Europe/Warsaw'
+
+CELERY_BEAT_SCHEDULE = {
+    'rides_archive': {
+        'task': 'rides_microservice.tasks.archive',
+        'schedule': crontab(minute='*/30'),
+        'options': {'queue': 'archive_queue'}
+    },
+    'rides_delete': {
+        'task': 'rides_microservice.tasks.clear_from_archived',
+        'schedule': solar('sunrise', 17.06031, 51.10774),
+        'options': {'queue': 'archive_queue'}
+    }
+}
 
 ROOT_URLCONF = 'rides_microservice.urls'
 
