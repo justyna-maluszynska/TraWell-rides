@@ -16,7 +16,7 @@ from rides.tests import convert_city_to_dict
 from users.factories import UserFactory
 from vehicles.factories import VehicleFactory
 
-AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2NjgyMDk0MTUsImlhdCI6MTY2ODE5MTQxNSwiYXV0aF90aW1lIjoxNjY4MTkxNDE1LCJqdGkiOiIyYzkxYTMyOC04YTY1LTQyZmMtOGQ0ZS1jZDQ3NTQxMjExZGEiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiZmMwZjRlZTAtNzAzYS00ZTkwLWEwZTQtODdjMzIzMjkyNTk5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiI0NzZiNjdlNy05ZDljLTRhYjQtYjc2MS0zZDQ3M2NhNzNjZDUiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwicHJpdmF0ZV91c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjQ3NmI2N2U3LTlkOWMtNGFiNC1iNzYxLTNkNDczY2E3M2NkNSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJQcml2YXRlIEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAyMi0xMC0zMSIsImZhY2Vib29rIjoiIiwibmFtZSI6Imp1c3R5bmEgbWFsIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZm1hanJveEBnbWFpbC5jb20iLCJpbnN0YWdyYW0iOiIiLCJnaXZlbl9uYW1lIjoianVzdHluYSIsImZhbWlseV9uYW1lIjoibWFsIiwiZW1haWwiOiJmbWFqcm94QGdtYWlsLmNvbSJ9.lwbUqupl1U7kPpV3rKXqCjuoVWbIcjhy4YbGIrEXZchHQNhM3C1wy9ew6qu5fzv91gi5XzRn5ATxRiHKoBW6chQv-GG1E53h9Nyg1LrOqV0isB4sCCPMMJ5IQgSgHZeZC2h62PuBSxkjxO0lxvpWbhJ2hKQR3yNGzqt38ogNh0F2yeYCq_c87uZBVRDkgraQTjUhlMGihnlxZR7K1qOpft0qew-pjMwkW9F22ljGzJGoE-5t_KNkN8l440IAP3IH_LEMr6yz1BN5D0KA1Q79c-pLug_MqlYMMgGa5xWgV15E3Xw0VLOFLVvveAxG_2kFe8InzViAvuTaxSFAz3pnDQ"
+AUTH_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJleUhzZzNlRkdiQzdTWjRQOEtWYXQ2aWJDLVlJWmE2dU03RnYycTdWQWhvIn0.eyJleHAiOjE2Njk3NzA0NDcsImlhdCI6MTY2OTc1MjQ0NywiYXV0aF90aW1lIjoxNjY5NzUyNDQ3LCJqdGkiOiIxY2IzNDU2Yy01Y2YwLTRmOTQtOTcxNS1hMTQ3MjhlYWRlMmMiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg0MDMvYXV0aC9yZWFsbXMvVHJhV2VsbCIsImF1ZCI6WyJzb2NpYWwtb2F1dGgiLCJyZWFjdCIsImFjY291bnQiXSwic3ViIjoiN2FkNWFkZjctOWM2ZS00YjhhLThjNWYtM2ZlOWZjMTNlY2IyIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia3Jha2VuZCIsInNlc3Npb25fc3RhdGUiOiIxYjAwNDJhZC1lMDAxLTQ3MjAtOWFhYy02MmM1MmE4NDg1OGEiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImFwcC11c2VyIiwiZGVmYXVsdC1yb2xlcy10cmF3ZWxsIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsic29jaWFsLW9hdXRoIjp7InJvbGVzIjpbInVzZXIiXX0sImtyYWtlbmQiOnsicm9sZXMiOlsidXNlciJdfSwicmVhY3QiOnsicm9sZXMiOlsidXNlciJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjFiMDA0MmFkLWUwMDEtNDcyMC05YWFjLTYyYzUyYTg0ODU4YSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJ1c2VyX3R5cGUiOiJDb21wYW55IEFjY291bnQiLCJkYXRlX29mX2JpcnRoIjoiMjAwMC0wNy0wOSIsImZhY2Vib29rIjoiIiwibmFtZSI6IkhhbGluYSBLYWN6bWFyZWsiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJmbWFqcm94QGdtYWlsLmNvbSIsImluc3RhZ3JhbSI6IiIsImdpdmVuX25hbWUiOiJIYWxpbmEiLCJmYW1pbHlfbmFtZSI6IkthY3ptYXJlayIsImVtYWlsIjoiZm1hanJveEBnbWFpbC5jb20ifQ.LF8mzghB_oh0mlF0avL_rUKRZb1nT2pDmbhfAOTlTba3N9F1jjX_rjAL4bQ-YZlf3pw9VcD-C3GT7Mfb3HS_75CkJhkzJmJliOLQf36wOULL8j1x4iBMjcKN_Pn8Pu_u5GnEgcldeg_uuTakGN2VXgPdMuW4RkIanhqSpIQVkw8JHkNWM3q13CZ5TelTkLyHdPDaAm2xqMG-u0LFhTTUtPcep6eZ-Nk4s0YfbHyt8zW176MQmipaFV4lhzEGdWstnPqXu1oZ8X7b2v4jjoXDNeCgaYpvjOFQ-feJoGdR-jTvSWCugbSg-RDST6XL1B4vK_HMMJQAbW-C5tJHHd3omQ"
 
 
 def prepare_data_for_post(additional_data={}, user_private: bool = True) -> dict:
@@ -192,8 +192,35 @@ class RecurrentRideViewSetTests(TestCase):
         vehicle = VehicleFactory.create_batch(size=2, user=user)
         today = datetime.datetime.now()
         ride = RecurrentRideFactory.create(seats=5, vehicle=vehicle[0], driver=user, start_date=today,
-                                           end_date=today + datetime.timedelta(days=7), frequency_type='weekly',
+                                           end_date=today + datetime.timedelta(days=6), frequency_type='weekly',
                                            occurrences=['mon', 'tue'], frequence=1)
 
         singular_rides = Ride.objects.filter(recurrent_ride=ride).all()
         self.assertEqual(len(singular_rides), 2)
+
+    def _get_user_rides_response(self, user_type: str) -> (status, dict):
+        RecurrentRideFactory.create_batch(size=8)
+
+        response = self.client.get(f'/recurrent_rides/user_rides/', {'user_type': user_type})
+        content = json.loads(response.content)
+        return response.status_code, content
+
+    def test_get_user_rides_as_driver_correctly(self):
+        user = UserFactory.create(email='fmajrox@gmail.com')
+        RecurrentRideFactory.create_batch(size=5, **{'driver': user})
+
+        status_code, content = self._get_user_rides_response('driver')
+
+        self.assertEqual(status_code, status.HTTP_200_OK)
+        self.assertEqual(content['count'], 5)
+
+    def test_get_single_rides(self):
+        user = UserFactory.create(email='fmajrox@gmail.com')
+        ride = RecurrentRideFactory.create(**{'driver': user})
+
+        user_singular_rides = Ride.objects.filter(recurrent_ride=ride)
+
+        response = self.client.get(f'/recurrent_rides/{ride.ride_id}/single_rides/')
+        content = json.loads(response.content)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(content), len(user_singular_rides))
