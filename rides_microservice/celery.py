@@ -5,14 +5,11 @@ import os
 import django
 import kombu
 from celery import Celery, bootsteps
-from kombu import Queue
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'rides_microservice.settings')
 django.setup()
 
-from users.models import User
-from users.serializers import UserSerializer
-from vehicles.models import Vehicle
+from utils.celery_utils import create_user, create_vehicle, delete_vehicle
 
 app = Celery('rides_microservice')
 
@@ -97,70 +94,14 @@ class MyConsumerStep(bootsteps.ConsumerStep):
         print('Received message: {0!r}'.format(body))
         print(message)
         if body['title'] == 'users':
-            try:
-                user = User.objects.get(user_id=body['message']['user_id'])
-                user_data = {
-                    'first_name': body['message']['first_name'],
-                    'last_name': body['message']["last_name"],
-                    'avatar': body['message']['avatar'],
-                    'avg_rate': body['message']['avg_rate']
-                }
-                serializer = UserSerializer(user, data=user_data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-
-            except User.DoesNotExist:
-                new_user = User.objects.create(
-                    user_id=body['message']['user_id'],
-                    first_name=body['message']['first_name'],
-                    last_name=body['message']["last_name"],
-                    email=body['message']["email"],
-                    avatar=body['message']['avatar'],
-                    private=True if body['message']['user_type'] == 'private' else False,
-                    avg_rate=body['message']['avg_rate']
-                )
-                new_user.save()
+            create_user(body['message'])
 
         if body['title'] == 'vehicles.create':
-            try:
-                User.objects.get(user_id=body['message']['user']['user_id'])
-
-            except User.DoesNotExist:
-                new_user = User.objects.create(
-                    user_id=body['message']['user']['user_id'],
-                    first_name=body['message']['user']['first_name'],
-                    last_name=body['message']['user']["last_name"],
-                    email=body['message']['user']["email"],
-                    avatar=body['message']['user']['avatar'],
-                    private=True if body['message']['user']['user_type'] == 'private' else False,
-                    avg_rate=body['message']['user']['avg_rate']
-                )
-                new_user.save()
-
-            try:
-                Vehicle.objects.get(vehicle_id=body['message']['vehicle_id'])
-            except Vehicle.DoesNotExist:
-                new_vehicle = Vehicle.objects.create(
-                    vehicle_id=body['message']['vehicle_id'],
-                    make=body['message']['make'],
-                    model=body['message']['model'],
-                    color=body['message']['color'],
-                    user_id=body['message']['user']['user_id']
-                )
-                new_vehicle.save()
-
-        if body['title'] == 'vehicles.patch':
-            print('Message received on vehicles queue_rides\n patch proly should not be implemented')
+            create_vehicle(body['message'])
 
         if body['title'] == 'vehicles.delete':
-            try:
-                vehicle = Vehicle.objects.get(vehicle_id=body['message']['vehicle_id'])
-                vehicle.delete()
-            except Vehicle.DoesNotExist:
-                pass
+            delete_vehicle(body['message'])
 
-        if body['title'] == 'ride.archive':
-            print('hejo, doszlo')
         message.ack()
 
 

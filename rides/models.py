@@ -49,8 +49,6 @@ class Ride(models.Model):
     def save(self, *args, **kwargs):
         if not self.ride_id:
             super(Ride, self).save(*args, **kwargs)
-        # if not self.available_seats:
-        #     self.available_seats = self.get_available_seats
         self.available_seats = self.get_available_seats
         super(Ride, self).save()
 
@@ -69,12 +67,10 @@ class Participation(models.Model):
 
     def delete(self, using=None, keep_parents=False):
         super(Participation, self).delete(using, keep_parents)
-        # self.ride.available_seats = self.ride.get_available_seats
         self.ride.save()
 
     def save(self, *args, **kwargs):
         super(Participation, self).save(*args, **kwargs)
-        # self.ride.available_seats = self.ride.get_available_seats
         self.ride.save()
 
 

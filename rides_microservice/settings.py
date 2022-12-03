@@ -74,14 +74,14 @@ CELERY_TIMEZONE = 'Europe/Warsaw'
 CELERY_BEAT_SCHEDULE = {
     'rides_archive': {
         'task': 'rides_microservice.tasks.archive',
-        'schedule': crontab(minute='*/30'),
+        'schedule': 30,
         'options': {'queue': 'archive_queue'}
     },
-    # 'rides_delete': {
-    #     'task': 'rides_microservice.tasks.clear_from_archived',
-    #     'schedule': solar('sunrise', 17.06031, 51.10774),
-    #     'options': {'queue': 'archive_queue'}
-    # }
+    'rides_delete': {
+        'task': 'rides_microservice.tasks.clear_from_archived',
+        'schedule': crontab(minute=30, hour=0),
+        'options': {'queue': 'archive_queue'}
+    }
 }
 
 ROOT_URLCONF = 'rides_microservice.urls'

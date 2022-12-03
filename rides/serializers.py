@@ -124,7 +124,7 @@ class RideSerializer(serializers.ModelSerializer):
         if type(requested_city_to) is OrderedDict:
             city_to, _ = City.objects.get_or_create(**requested_city_to)
             instance.city_to = city_to
-
+        print(f' VALIDATED DATA -> {validated_data}')
         coordinates = validated_data.get('coordinates', instance.coordinates.all())
         new_coordinates = []
         for coordinate in coordinates:

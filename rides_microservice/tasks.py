@@ -45,3 +45,4 @@ def clear_from_archived():
     publish_message(serializer.data, 'rides.sync', queue_history, 'history')
 
     rides.delete()
+
