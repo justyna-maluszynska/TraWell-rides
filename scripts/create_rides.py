@@ -1,3 +1,4 @@
+import datetime
 import random
 
 from cities.models import City
@@ -25,8 +26,9 @@ def create(amount):
             driver = users[driver_index]
             vehicle = driver.vehicles.all()[0]
             seats = random.randint(1, 9)
+            duration = datetime.timedelta(hours=random.randint(1, 23))
 
-            ride = RideWithPassengerFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats)
+            ride = RideWithPassengerFactory(city_from=city_from, city_to=city_to, driver=driver, vehicle=vehicle, seats=seats, duration=duration)
 
             tasks.publish_message(RideSerializer(ride).data, 'rides.create', queue_notify, 'notify')
             tasks.publish_message(RideSerializer(ride).data, 'rides.create', queue_reviews, 'review')

@@ -1,3 +1,4 @@
+import datetime
 import random
 
 import factory.django
@@ -20,7 +21,7 @@ class RideFactory(factory.django.DjangoModelFactory):
     area_from = factory.Faker('text', max_nb_chars=100)
     area_to = factory.Faker('text', max_nb_chars=100)
     start_date = factory.Faker('future_datetime', tzinfo=pytz.timezone('Europe/Warsaw'))
-    duration = factory.Faker('time_delta', end_datetime=start_date)
+    duration = datetime.timedelta(hours=random.randint(1, 23))
     price = factory.Faker('pydecimal', left_digits=4, right_digits=2, positive=True)
     seats = factory.Faker('random_digit_not_null')
     recurrent = False
@@ -37,7 +38,7 @@ class ParticipationFactory(factory.django.DjangoModelFactory):
         model = models.Participation
 
     ride = factory.SubFactory(RideFactory)
-    user = factory.Faker('random_choice', elements=User.objects.all())
+    user = factory.Faker('random_element', elements=User.objects.all())
     decision = factory.fuzzy.FuzzyChoice(['accepted', 'pending', 'cancelled', 'declined'])
     reserved_seats = factory.fuzzy.FuzzyChoice([1, 2, 3])
 

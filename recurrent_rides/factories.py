@@ -1,4 +1,5 @@
 import datetime
+import random
 
 import factory
 import pytz
@@ -24,7 +25,7 @@ class RecurrentRideFactory(factory.django.DjangoModelFactory):
     frequency_type = factory.fuzzy.FuzzyChoice(choices=['daily', 'hourly', 'monthly'])
     frequence = factory.Faker('random_digit_not_null')
     occurrences = None
-    duration = factory.Faker('time_delta', end_datetime=start_date)
+    duration = datetime.timedelta(hours=random.randint(1, 23))
     price = factory.Faker('pydecimal', left_digits=4, right_digits=2, positive=True)
     seats = factory.Faker('random_digit_not_null')
     automatic_confirm = factory.Faker('pybool')
