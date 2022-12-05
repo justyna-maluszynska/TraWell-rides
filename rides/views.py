@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
@@ -175,7 +173,6 @@ class RideViewSet(viewsets.ModelViewSet):
         :return: List of user's rides.
         """
         user = kwargs['user']
-        print(datetime.today())
         return self._get_user_rides(request, user)
 
     @validate_token
