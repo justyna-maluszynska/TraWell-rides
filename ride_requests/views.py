@@ -58,7 +58,7 @@ class RequestViewSet(viewsets.ModelViewSet):
             participation = Participation.objects.create(ride=ride, user=user, decision=decision,
                                                          reserved_seats=seats_no)
             tasks.publish_message(ParticipationSerializer(participation).data, 'participation', queue_notify, 'notify')
-            tasks.publish_message(ParticipationSerializer(participation).data, 'participation', queue_reviews, 'review')
+            # tasks.publish_message(ParticipationSerializer(participation).data, 'participation', queue_reviews, 'review')
             return JsonResponse(status=status.HTTP_200_OK, data='Request successfully sent', safe=False)
         else:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=message, safe=False)
@@ -89,8 +89,8 @@ class RequestViewSet(viewsets.ModelViewSet):
 
                         tasks.publish_message(ParticipationSerializer(instance).data, 'participation',
                                               queue_notify, 'notify')
-                        tasks.publish_message(ParticipationSerializer(instance).data, 'participation',
-                                              queue_reviews, 'review')
+                        # tasks.publish_message(ParticipationSerializer(instance).data, 'participation',
+                        #                       queue_reviews, 'review')
 
                         return JsonResponse(status=status.HTTP_200_OK,
                                             data=f'Request successfully changed to {decision}', safe=False)
