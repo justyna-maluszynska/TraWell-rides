@@ -17,7 +17,7 @@ def create_user(message):
 
 def create_vehicle(message):
     user_data = message.pop('user')
-    user, _ = create_user(user_data)
+    user = create_user(user_data)
     vehicle, _ = Vehicle.objects.update_or_create(vehicle_id=message['vehicle_id'], user=user,
                                                   defaults={'make': message['make'],
                                                             'model': message['model'],
