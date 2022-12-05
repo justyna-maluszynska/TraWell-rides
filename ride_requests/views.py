@@ -12,7 +12,6 @@ from rides_microservice import tasks
 from rides.models import Participation, Ride
 from rides.serializers import ParticipationSerializer
 from utils.CustomPagination import CustomPagination
-from rides.utils.constants import ACTUAL_RIDES_ARGS
 from utils.generic_endpoints import get_paginated_queryset
 from utils.utils import verify_request
 from utils.validate_token import validate_token
@@ -44,7 +43,8 @@ class RequestViewSet(viewsets.ModelViewSet):
         try:
             seats_no = parameters['seats']
             ride_id = parameters['ride']
-            ride = Ride.objects.get(ride_id=ride_id, **ACTUAL_RIDES_ARGS)
+            ride = Ride.objects.get(ride_id=ride_id, **{"is_cancelled": False,
+                                                        "start_date__gt": datetime.datetime.today()})
         except KeyError as e:
             return JsonResponse(status=status.HTTP_400_BAD_REQUEST, data=f"Missing parameter: {e}", safe=False)
         except Ride.DoesNotExist:
@@ -145,7 +145,8 @@ class RequestViewSet(viewsets.ModelViewSet):
     def my_requests(self, request, *args, **kwargs):
         user = kwargs['user']
 
-        rides = Ride.objects.filter(passengers=user, **ACTUAL_RIDES_ARGS)
+        rides = Ride.objects.filter(passengers=user,
+                                    **{"is_cancelled": False, "start_date__gt": datetime.datetime.today()})
         decision = request.GET.get('decision', '')
         participation_filters = {"user": user}
         return self._get_requests_list(request=request, rides=rides, decision=decision,
@@ -156,5 +157,5 @@ class RequestViewSet(viewsets.ModelViewSet):
     def pending_requests(self, request, *args, **kwargs):
         user = kwargs['user']
 
-        rides = Ride.objects.filter(driver=user, **ACTUAL_RIDES_ARGS)
+        rides = Ride.objects.filter(driver=user, **{"is_cancelled": False, "start_date__gt": datetime.datetime.today()})
         return self._get_requests_list(request=request, rides=rides, decision='pending')

@@ -1,10 +1,11 @@
+import datetime
+
 from rest_framework import serializers
 
 from cities.serializers import CitySerializer
 from recurrent_rides.models import RecurrentRide
 from rides.models import Ride
 from rides.serializers import get_ride_data, update_ride, get_duration
-from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.serializers import UserSerializer
 from vehicles.serializers import VehicleSerializer
 
@@ -43,7 +44,8 @@ class RecurrentRideSerializer(serializers.ModelSerializer):
                        'seats': seats}
         update_ride(instance, update_data)
 
-        single_rides = Ride.objects.filter(recurrent_ride=instance, **ACTUAL_RIDES_ARGS)
+        single_rides = Ride.objects.filter(recurrent_ride=instance, **{"is_cancelled": False,
+                                                                       "start_date__gt": datetime.datetime.today()})
         for ride in single_rides:
             update_ride(ride, update_data)
 

@@ -1,3 +1,4 @@
+import datetime
 from datetime import timedelta
 
 import pandas as pd
@@ -7,7 +8,6 @@ from pandas import DatetimeIndex
 
 from cities.models import City
 from rides.services import create_ride
-from rides.utils.constants import ACTUAL_RIDES_ARGS
 from users.models import User
 from vehicles.models import Vehicle
 
@@ -85,7 +85,8 @@ def create_or_update_single_rides(recurrent_ride: RecurrentRide) -> None:
             "automatic_confirm": recurrent_ride.automatic_confirm, "description": recurrent_ride.description, }
 
     if recurrent_ride.single_rides.exists():
-        recurrent_ride.single_rides.filter(**ACTUAL_RIDES_ARGS).update(**data)
+        recurrent_ride.single_rides.filter(**{"is_cancelled": False,
+                                              "start_date__gt": datetime.datetime.today()}).update(**data)
     else:
         for start_date in dates:
             data['start_date'] = start_date

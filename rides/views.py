@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import QuerySet
 from django.http import JsonResponse
 from rest_framework import viewsets, status
@@ -9,14 +11,12 @@ from rides.serializers import RideSerializer, RideListSerializer, RidePersonal
 from django_filters import rest_framework as filters
 from rest_framework.filters import OrderingFilter
 
-from rides.utils.constants import ACTUAL_RIDES_ARGS
 from utils.generic_endpoints import get_paginated_queryset
 from utils.selectors import city_object, rides_with_cities_nearby
 from utils.services import create_or_update_ride, update_partial_ride, update_whole_ride, cancel_ride
 from utils.utils import get_city_info, filter_rides_by_cities, is_user_a_driver
 from utils.CustomPagination import CustomPagination
 from utils.validate_token import validate_token
-from rides_microservice import tasks
 
 
 class RideViewSet(viewsets.ModelViewSet):
@@ -31,7 +31,7 @@ class RideViewSet(viewsets.ModelViewSet):
         'user_rides': RidePersonal,
         'create': RideSerializer,
     }
-    queryset = Ride.objects.filter(**ACTUAL_RIDES_ARGS)
+    queryset = Ride.objects.filter(**{"is_cancelled": False, "start_date__gt": datetime.datetime.today()})
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RideFilter
     pagination_class = CustomPagination

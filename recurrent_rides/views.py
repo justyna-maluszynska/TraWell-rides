@@ -1,3 +1,5 @@
+import datetime
+
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -10,7 +12,6 @@ from recurrent_rides.models import RecurrentRide
 from recurrent_rides.serializers import RecurrentRideSerializer, RecurrentRidePersonal, SingleRideSerializer
 from rides.models import Ride
 from utils.CustomPagination import CustomPagination
-from rides.utils.constants import ACTUAL_RIDES_ARGS
 from utils.generic_endpoints import get_paginated_queryset
 from utils.services import create_or_update_ride, update_partial_ride, cancel_ride
 from utils.utils import is_user_a_driver, filter_rides_by_cities
@@ -26,7 +27,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         'retrieve': RecurrentRideSerializer,
         'single_rides': SingleRideSerializer,
     }
-    queryset = RecurrentRide.objects.filter(**ACTUAL_RIDES_ARGS)
+    queryset = RecurrentRide.objects.filter(**{"is_cancelled": False, "start_date__gt": datetime.datetime.today()})
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = RecurrentRideFilter
     pagination_class = CustomPagination
@@ -82,7 +83,8 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.driver == user:
             cancel_ride(instance)
-            singular_rides = Ride.objects.filter(recurrent_ride=instance, **ACTUAL_RIDES_ARGS)
+            singular_rides = Ride.objects.filter(recurrent_ride=instance, **{"is_cancelled": False,
+                                                                             "start_date__gt": datetime.datetime.today()})
             for ride in singular_rides:
                 cancel_ride(ride)
             return JsonResponse(status=status.HTTP_200_OK, data=f'Ride successfully deleted.', safe=False)
@@ -113,7 +115,7 @@ class RecurrentRideViewSet(viewsets.ModelViewSet):
     def _get_singular_rides(self, request, user):
         instance = self.get_object()
         if instance.driver == user:
-            params = ACTUAL_RIDES_ARGS
+            params = {"is_cancelled": False, "start_date__gt": datetime.datetime.today()}
             start_date = request.GET.get('single_start_date', None)
             if start_date:
                 params['start_date__gt'] = start_date
